@@ -41,7 +41,7 @@ instructions. On any machine, type `*NET`, then:
 | `CHAIN "HELLO"` | A program loaded over the network from the file server |
 | `CHAIN "CHAT"` | Two BBCs talking: run it on two machines, give each the other's station number, and type. It uses the network filing system's own transmit and receive calls (OSWORD &10 and &11) on port &77 |
 | `CHAIN "GUESTS"` | A visitors' book kept in a file on the server: sign it on one BBC, and the name's there on another |
-| `CHAIN "PRINTME"` | A page printed on the network printer (station 235): see it in Window ▸ Print Centre |
+| `CHAIN "PRINTME"` | A page printed on the network printer (station 235): see it with the printer button in the toolbar |
 | `CHAIN "WELCOME"` | The instructions again |
 
 Watch the **Traffic** view while they run to see the frames each one sends.
@@ -69,7 +69,7 @@ to write another.
 
 The Editor's desk checks the file server every few seconds and lists what
 has been filed. Press **P** to print the edition, then open **Window ▸
-Print Centre**. The paper has the masthead drawn in the BBC's own
+Print Centre** (or click the printer button in the toolbar). The paper has the masthead drawn in the BBC's own
 characters (read from its font with OSWORD 10), then the stories in two
 columns, with headlines in Epson bold and underline. **N** starts the next
 edition: the desks are cleared, and the edition number goes up.
@@ -246,7 +246,8 @@ files (DFS's limit), the server's own included.
 
 ## Printing
 
-**Window ▸ Print Centre** (⌥⌘P) shows everything the BBCs have printed, on
+**Window ▸ Print Centre** (⌥⌘P), or the printer button in the toolbar of a
+network with a printer server, shows everything the BBCs have printed, on
 paper as the printer would have put it, and keeps it after MacBeeb quits.
 A new job is shown as soon as it starts, following its pages as they print.
 

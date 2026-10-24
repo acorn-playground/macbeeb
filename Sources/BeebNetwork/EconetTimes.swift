@@ -83,7 +83,7 @@ public enum EconetTimes {
     670 PRINT STRING$(60,"-"):PRINT
     680 *FX3,0
     690 VDU 3:Z$=""
-    700 PRINT CHR$130;"Printed: see Window > Print Centre."
+    700 PRINT CHR$130;"Printed: click the printer button."
     710 ENDPROC
     720 DEF FNnext
     730 T$=$G%:G%=G%+LEN T$+1:=T$
@@ -160,6 +160,10 @@ public enum EconetTimes {
     350 IF F% PROCline(CHR$131+"P"+CHR$135+"print this edition on the printer") ELSE PROCline(CHR$135+"Nothing to print yet.")
     360 IF F% PROCline(CHR$131+" "+CHR$135+"server (station 235)") ELSE PROCline("")
     370 PROCline(CHR$131+"N"+CHR$135+"start the next edition")
+    372 PROCline("")
+    374 PROCline(CHR$134+"The paper comes out in the Print")
+    376 PROCline(CHR$134+"Centre: click the printer button at")
+    378 PROCline(CHR$134+"the top of the Network Studio.")
     380 T%=TIME:REPEAT K$=INKEY$(10):UNTIL K$<>"" OR TIME-T%>400
     390 IF F%>0 AND (K$="P" OR K$="p") PROCprint
     400 IF K$="N" OR K$="n" PROCnext:GOTO 100
@@ -196,7 +200,7 @@ public enum EconetTimes {
     1240 PRINT
     1250 *FX3,0
     1260 VDU 3:Z$=""
-    1270 PRINT TAB(0,21);:PROCline(CHR$130+"Printed: see Window > Print Centre.")
+    1270 PRINT TAB(0,21);:PROCline(CHR$130+"Printed: click the printer button.")
     1280 ENDPROC
     1300 DEF PROCmasthead
     1310 PRINT SPC(36);"T H E":PRINT

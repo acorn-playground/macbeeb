@@ -11,6 +11,7 @@ struct NetworkStudioWindow: View {
     @State private var session: NetworkSession?
     @State private var error: String?
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.openWindow) private var openWindow
     /// A new network's window closing: keep it, or delete it?
     @State private var askingToKeep = false
     @State private var mayClose = false
@@ -209,6 +210,12 @@ struct NetworkStudioView: View {
                 Label(session.paused ? "Resume Network" : "Pause Network", systemImage: session.paused ? "play.fill" : "pause.fill")
             }
             .help(session.paused ? "Carry on: every machine starts again together" : "Stop time on the whole network: nothing times out")
+        }
+        if session.project.nodes.contains(where: { $0.kind == .printServer }) {
+            ToolbarItem {
+                Button { openWindow(id: PrintCentre.windowID) } label: { Label("Print Centre", systemImage: "printer") }
+                    .help("What the printer server has printed, on paper (Window ▸ Print Centre)")
+            }
         }
         ToolbarItem {
             Button { sharing = true } label: {

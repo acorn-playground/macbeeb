@@ -453,7 +453,7 @@ struct EconetDemoTests {
 
         // Printing, from the welcome machine.
         rig.type(2, "CHAIN \"PRINTME\"\n")
-        #expect(rig.run(until: { printed.text.contains("PRINTED OVER ECONET") && rig.screen(2).contains("Print Centre") }, seconds: 90),
+        #expect(rig.run(until: { printed.text.contains("PRINTED OVER ECONET") && rig.screen(2).contains("click the printer") }, seconds: 90),
                 "\(printed.text.debugDescription) \(rig.screen(2))")
     }
 }

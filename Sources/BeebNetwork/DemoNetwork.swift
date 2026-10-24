@@ -27,7 +27,7 @@ public enum DemoNetwork {
     170 PRINT
     180 PRINT Y$;"On the Mac:"
     190 PRINT C$;"Traffic shows every frame sent."
-    200 PRINT C$;"Window > Print Centre shows what's"
+    200 PRINT C$;"The printer button above shows what's"
     210 PRINT C$;"printed. Drop files on the file"
     220 PRINT C$;"server's card to share them."
     230 PRINT
@@ -127,7 +127,8 @@ public enum DemoNetwork {
     150 PRINT
     160 FOR I%=1 TO 8:PRINT STRING$(I%*4,"*"):NEXT
     170 VDU 3
-    180 PRINT CHR$130;"Done. On the Mac: Window > Print Centre."
+    180 PRINT CHR$130;"Done. To see it, click the printer"
+    190 PRINT CHR$130;"button at the top of the Studio."
     """
 
     /// The programs on the file server, by name.
