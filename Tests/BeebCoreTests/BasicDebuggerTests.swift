@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import BeebCore
+import BeebHost
 import BeebROMs
 
 struct BasicExpressionTests {
@@ -345,6 +346,28 @@ struct BasicDebuggerTests {
     @Test func listsTheProgram() throws {
         let m = machine(program: "10 PRINT \"HI\":GOTO 10")
         #expect(m.debugger.basic.listing().map { "\($0.number)\($0.text)" } == ["10 PRINT \"HI\":GOTO 10"])
+    }
+
+    @Test func snapshotForTheDebuggerWindow() throws {
+        let m = machine()
+        try m.debugger.basic.add(BasicBreakpoint(line: 120, condition: "N%=2"))
+        #expect(run(m) == .basicBreakpoint(id: 1, cpu: .host, line: 120))
+        var view = DebugView()
+        view.basic = true
+        view.basicExpanded = ["grid%("]
+        view.basicWatches = ["N%*10", "nope"]
+        let snapshot = try #require(DebugSnapshot(machine: m, view: view).basic)
+        #expect(snapshot.interpreters == ["BASIC 2"])
+        #expect(snapshot.stop?.line == 120)
+        #expect(snapshot.lines.first { $0.number == 120 }?.breakpoints.map(\.id) == [1])
+        #expect(snapshot.lines.first { $0.number == 120 }?.text == " T=N%*2")
+        #expect(snapshot.frames.map(\.name) == ["PROCadd", nil])
+        #expect(snapshot.watches.first?.result == .success(.integer(20)))
+        if case .success = snapshot.watches.last?.result { Issue.record("an unknown variable should fail") }
+        // DIMmed at line 70, not yet.
+        #expect(snapshot.elements.isEmpty)
+        view.basic = false
+        #expect(DebugSnapshot(machine: m, view: view).basic == nil)
     }
 
     @Test func hooksOffWithNothingSet() throws {

@@ -10,6 +10,12 @@ public struct DebugView: Sendable, Equatable {
     public var memoryAddress = 0
     public var memoryLength = 512
     public var traceCount = 200
+    /// Show the BASIC program (and gather `DebugSnapshot.basic`).
+    public var basic = false
+    /// BASIC arrays to show the elements of, by name (e.g. "grid%(").
+    public var basicExpanded: Set<String> = []
+    /// BASIC expressions to show the values of.
+    public var basicWatches: [String] = []
 
     public init() {}
 }
@@ -71,6 +77,8 @@ public struct DebugSnapshot: Sendable {
     public var regions: [MemoryRegion]
     public var profile: ProfileReport?
     public var isProfiling: Bool
+    /// The BASIC program, if the view asks for it.
+    public var basic: BasicDebugSnapshot?
 
     public var hasSecondProcessor: Bool { cpus.count > 1 }
 
@@ -141,6 +149,7 @@ public struct DebugSnapshot: Sendable {
         log = Array(debugger.log.suffix(200))
         regions = m.memoryRegions
         isProfiling = debugger.isProfiling
+        basic = view.basic ? BasicDebugSnapshot(machine: m, view: view) : nil
         profile = debugger.profileReport(cpu, top: 30)
         if let profile, let busiest = profile.hottest.first?.cycles, busiest > 0 {
             for index in disassembly.indices {

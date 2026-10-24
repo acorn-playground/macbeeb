@@ -97,6 +97,14 @@ public enum StopReason: Equatable, Sendable, CustomStringConvertible {
         }
     }
 
+    /// A stop in a BASIC program.
+    public var isBasic: Bool {
+        switch self {
+        case .basicBreakpoint, .basicStepped, .basicError: true
+        default: false
+        }
+    }
+
     static func hex(_ value: UInt16) -> String {
         let digits = String(value, radix: 16, uppercase: true)
         return String(repeating: "0", count: max(0, 4 - digits.count)) + digits

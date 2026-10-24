@@ -234,6 +234,16 @@ Continue/pause is ⌃⌘Y, step over/into/out are F6/F7/F8, and the Step By
 menu goes by cycle, scanline, frame or interrupt. While it's open, the
 machine window shows the screen address under the mouse.
 
+Its BASIC view (the toolbar's Machine Code / BASIC switch; it switches
+itself when a BASIC breakpoint or error stops the program) debugs a BBC
+BASIC program by its lines: the listing with a breakpoint gutter
+(Control-click a line for a condition, a statement or a log message), the
+line and statement it's stopped at, the variables (LOCALs first, arrays
+opened to their elements, double-click to change one), the PROC and FN
+calls, watched expressions, and stopping on errors where they happen.
+There, F6/F7/F8 step a statement at a time over, into or out of PROCs, FNs
+and GOSUBs, and Pause stops at the next statement.
+
 `Debugger` (in BeebCore) does breakpoints on execute, read or write, over
 ranges, with conditions (`A == &41 && [&70] > 3`), hit counts, ROM bank
 qualifiers and log points; stepping by instruction, over, out, cycle,

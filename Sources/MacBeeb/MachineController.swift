@@ -428,6 +428,52 @@ final class MachineController {
                     try? rep.representation(using: .png, properties: [:])?
                         .write(to: URL(fileURLWithPath: path.replacingOccurrences(of: ".png", with: "-debugger.png")))
                 }
+            } else if UserDefaults.standard.bool(forKey: "MacBeebSelfTestBasicDebugger") {
+                // A program stopped at a BASIC breakpoint in a PROC, then
+                // stepped, then stopped at an error: the debugger's BASIC
+                // view each time.
+                host.send(.paste("""
+                10 total=0:DIM grid%(2,2)
+                20 FOR I%=1 TO 3
+                30 PROCadd(I%)
+                40 NEXT
+                50 PRINT total/0
+                60 END
+                100 DEF PROCadd(N%)
+                110 LOCAL T,name$
+                120 T=N%*2:name$="Step "+STR$N%
+                130 total=total+T:grid%(N%-1,1)=T
+                140 ENDPROC
+
+                """))
+                try? await Task.sleep(for: .seconds(1))
+                debugger.addBasicBreakpoint(BasicBreakpoint(line: 130, condition: "N%=2"))
+                debugger.setBasicErrorStop(.untrapped)
+                debugger.addBasicWatch("total*10")
+                debugger.addBasicWatch("grid%(0,1)")
+                debugger.toggleBasicArray("grid%(")
+                // (The commands run on the emulation thread.)
+                try? await Task.sleep(for: .seconds(0.5))
+                host.send(.paste("RUN\n"))
+                debuggerRequested = true
+                @MainActor func capture(_ suffix: String) {
+                    if let window = NSApp.windows.first(where: { $0.title.hasPrefix("Debugger") }),
+                       let frameView = window.contentView?.superview,
+                       let rep = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) {
+                        frameView.cacheDisplay(in: frameView.bounds, to: rep)
+                        try? rep.representation(using: .png, properties: [:])?
+                            .write(to: URL(fileURLWithPath: path.replacingOccurrences(of: ".png", with: "-\(suffix).png")))
+                    }
+                }
+                try? await Task.sleep(for: .seconds(2))
+                capture("basic")
+                debugger.basicStep(.into)
+                try? await Task.sleep(for: .seconds(1))
+                capture("basic-step")
+                debugger.removeAllBasicBreakpoints()
+                debugger.basicPauseOrContinue()
+                try? await Task.sleep(for: .seconds(2))
+                capture("basic-error")
             } else if UserDefaults.standard.bool(forKey: "MacBeebSelfTestMacLayout") {
                 await typeThroughWindowInMacLayout()
             } else {

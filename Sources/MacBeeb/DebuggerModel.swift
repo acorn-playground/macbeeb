@@ -62,6 +62,10 @@ final class DebuggerModel {
                    old.view.memorySpace == result.view.memorySpace, old.view.memoryAddress == result.view.memoryAddress {
                     previousMemory = old.memory
                 }
+                // A BASIC stop shows the program.
+                if let reason = result.stopReason, reason != lastStop, reason.isBasic, !self.view.basic {
+                    self.view.basic = true
+                }
                 lastStop = result.stopReason
                 snapshot = result
             }
@@ -146,6 +150,94 @@ final class DebuggerModel {
 
     func removeAllBreakpoints() {
         command { $0.debugger.removeAllBreakpoints() }
+    }
+
+    // MARK: BASIC
+
+    var basic: BasicDebugSnapshot? { snapshot?.basic }
+
+    /// A line the listing should scroll to (`serial` so the same line
+    /// can be asked for again).
+    struct ScrollRequest: Equatable {
+        var line: Int
+        var serial: Int
+    }
+
+    private(set) var basicScrollRequest: ScrollRequest?
+
+    func showBasicLine(_ line: Int) {
+        basicScrollRequest = ScrollRequest(line: line, serial: (basicScrollRequest?.serial ?? 0) + 1)
+    }
+
+    /// In BASIC, Pause stops at the next statement (so it's somewhere in
+    /// the program).
+    func basicPauseOrContinue() {
+        if isStopped {
+            command { $0.debugger.resume() }
+        } else {
+            command { $0.debugger.begin(basic: .into) }
+        }
+    }
+
+    func basicStep(_ kind: BasicStep) {
+        command { $0.debugger.begin(basic: kind) }
+    }
+
+    /// Adds a breakpoint on the line, or removes the line's.
+    func toggleBasicBreakpoint(line: Int) {
+        command { m in
+            let basic = m.debugger.basic
+            let existing = basic.breakpoints.filter { $0.line == line }
+            if existing.isEmpty {
+                try basic.add(BasicBreakpoint(line: line))
+            } else {
+                for b in existing { basic.remove(id: b.id) }
+            }
+        }
+    }
+
+    func addBasicBreakpoint(_ breakpoint: BasicBreakpoint) {
+        command { try $0.debugger.basic.add(breakpoint) }
+    }
+
+    func updateBasicBreakpoint(_ breakpoint: BasicBreakpoint) {
+        command { try $0.debugger.basic.update(breakpoint) }
+    }
+
+    func removeBasicBreakpoint(id: Int) {
+        command { $0.debugger.basic.remove(id: id) }
+    }
+
+    func removeAllBasicBreakpoints() {
+        command { $0.debugger.basic.removeAllBreakpoints() }
+    }
+
+    func setBasicErrorStop(_ mode: BasicDebugger.ErrorStop) {
+        command { $0.debugger.basic.errorStop = mode }
+    }
+
+    /// Sets a variable (or an array element) to a BASIC expression's value.
+    func setBasicVariable(_ name: String, indices: [Int]? = nil, to expression: String) {
+        let cpu = basic?.cpu
+        command { try $0.debugger.basic.set(name, indices: indices, to: expression, cpu: cpu) }
+    }
+
+    func toggleBasicArray(_ name: String) {
+        if view.basicExpanded.contains(name) {
+            view.basicExpanded.remove(name)
+        } else {
+            view.basicExpanded.insert(name)
+        }
+    }
+
+    func addBasicWatch(_ expression: String) {
+        let trimmed = expression.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !view.basicWatches.contains(trimmed) else { return }
+        view.basicWatches.append(trimmed)
+    }
+
+    func removeBasicWatch(_ expression: String) {
+        view.basicWatches.removeAll { $0 == expression }
     }
 
     // MARK: State
