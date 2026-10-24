@@ -6,7 +6,8 @@ extension NetworkSelfTest {
     /// `-MacBeebNetworkSelfTestTemplate econetTimes`: the newsroom, as a
     /// visitor would use it. Two reporters file their desks' own stories,
     /// the editor prints the paper, and the canvas and the Print Centre are
-    /// captured (path-canvas.png, path-print.png), with what the machines
+    /// captured (path-canvas.png; path-proof.png and path-print.png, the
+    /// Print Centre open as a reporter's proof and then the paper arrive), with what the machines
     /// showed in path.txt.
     static func runEconetTimes(_ path: String) {
         NSLog("MacBeeb: Econet Times self-test starting")
@@ -49,18 +50,26 @@ extension NetworkSelfTest {
                 session.controllers[reporter.id]?.host.send(.type("\n\(reporter.name.uppercased())\n\n"))
                 report += "\(reporter.name) filed: \(await wait(reporter.id, for: "Filed!", seconds: 60))\n"
             }
-            report += "On the board: \(await wait(editor.id, for: "Fine, With Scattered", seconds: 30))\n"
-            session.controllers[editor.id]?.host.send(.type("P"))
-            report += "Printed: \(await wait(editor.id, for: "Printed:", seconds: 120))\n"
-            try? await Task.sleep(for: .seconds(5))
-            report += "Print jobs: \(PrintCentre.shared.jobs.map { "\($0.printer), \($0.bytes.count) bytes" })\n"
-            capture(canvas, to: path.replacingOccurrences(of: ".png", with: "-canvas.png"))
+            // The Print Centre's open as the jobs arrive: a reporter's proof,
+            // then the paper, which it should end up showing.
             let prints = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 1000, height: 900),
                                   styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             prints.isReleasedWhenClosed = false
             prints.contentViewController = NSHostingController(rootView: PrintCentreWindow().frame(width: 1000, height: 900))
             prints.orderBack(nil)
-            try? await Task.sleep(for: .seconds(2))
+            if let first = reporters.first {
+                session.controllers[first.id]?.host.send(.type("P"))
+                report += "Proof printed: \(await wait(first.id, for: "Printed:", seconds: 60))\n"
+                try? await Task.sleep(for: .seconds(4))
+                capture(prints, to: path.replacingOccurrences(of: ".png", with: "-proof.png"))
+            }
+            report += "On the board: \(await wait(editor.id, for: "Fine, With Scattered", seconds: 30))\n"
+            session.controllers[editor.id]?.host.send(.type("P"))
+            report += "Printed: \(await wait(editor.id, for: "Printed:", seconds: 120))\n"
+            try? await Task.sleep(for: .seconds(5))
+            report += "Print jobs: \(PrintCentre.shared.jobs.map { "\($0.printer), \($0.bytes.count) bytes" })\n"
+            report += "Showing the newest job: \(PrintCentre.shared.selection == PrintCentre.shared.jobs.first?.id)\n"
+            capture(canvas, to: path.replacingOccurrences(of: ".png", with: "-canvas.png"))
             capture(prints, to: path.replacingOccurrences(of: ".png", with: "-print.png"))
             for station in stations {
                 report += "\n== \(station.name)\n\(await screen(station.id))\n"

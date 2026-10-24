@@ -21,7 +21,7 @@ final class PrintCentre {
             }
         }
     }
-    /// The job shown.
+    /// The job shown: a new job, as soon as it starts.
     var selection: UUID?
     /// Counts jobs started, so a window can come forward for a new one.
     private(set) var arrivals = 0
@@ -59,7 +59,7 @@ final class PrintCentre {
         } else {
             jobs.insert(job, at: 0)
             arrivals += 1
-            if selection == nil || jobs.count == 1 { selection = job.id }
+            selection = job.id
         }
         if job.status != .printing {
             save(job)

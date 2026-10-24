@@ -78,8 +78,8 @@ public enum EconetTimes {
     620 VDU 27,69,27,45,1:R$=FNnext:PROCwrap(60):VDU 27,45,0,27,70
     630 R$="By "+FNnext:T$=FNnext:IF T$<>"0" R$=R$+", station "+T$
     640 PROCwrap(60)
-    650 REPEAT R$=FNnext:IF R$<>"" PRINT:PROCwrap(60)
-    660 UNTIL R$=""
+    650 REPEAT P$=FNnext:IF P$<>"" R$=P$:PRINT:PROCwrap(60)
+    660 UNTIL P$=""
     670 PRINT STRING$(60,"-"):PRINT
     680 *FX3,0
     690 VDU 3:Z$=""

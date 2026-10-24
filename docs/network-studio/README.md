@@ -248,6 +248,7 @@ files (DFS's limit), the server's own included.
 
 **Window ▸ Print Centre** (⌥⌘P) shows everything the BBCs have printed, on
 paper as the printer would have put it, and keeps it after MacBeeb quits.
+A new job is shown as soon as it starts, following its pages as they print.
 
 - **On a network**: the printer server (station 235) runs MacBeeb's printer
   server on its BBC, with a printer on its printer port. On any other

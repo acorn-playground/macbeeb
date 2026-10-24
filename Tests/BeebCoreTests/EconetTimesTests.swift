@@ -37,13 +37,15 @@ struct EconetTimesTests {
         #expect(rig.run(until: { rig.screen(4).contains("Which desk") }, seconds: 30), "\(rig.screen(4))")
         rig.type(4, "2")
         #expect(rig.run(until: { rig.screen(4).contains("Headline") }), "\(rig.screen(4))")
-        rig.type(4, "GOAL FOR STATION 3\nBOB\nIt was a close match, decided in the last minute by a header.\n\n")
+        rig.type(4, "GOAL FOR STATION 3\nBOB\nIt was a close match, decided in the last minute by a header.\nThe crowd went home happy.\n\n")
         #expect(rig.run(until: { rig.screen(4).contains("Filed!") }, seconds: 30), "\(rig.screen(4))")
         rig.type(4, "P")
         #expect(rig.run(until: { rig.screen(4).contains("Printed:") }, seconds: 60), "\(rig.screen(4))")
         // (The Master's CAPS LOCK is on.)
         #expect(rig.run(until: { printed.text.uppercased().contains("DECIDED IN THE LAST") }, seconds: 30), "\(printed.text.debugDescription)")
         #expect(printed.text.contains("PROOF: The Sport desk"), "\(printed.text.debugDescription)")
+        #expect(rig.run(until: { printed.text.uppercased().contains("THE CROWD WENT HOME HAPPY") }, seconds: 30),
+                "Every paragraph: \(printed.text.debugDescription)")
         #expect(!printed.text.contains("\n"), "\(printed.text.debugDescription)")
         let proof = printed.bytes.count
 

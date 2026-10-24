@@ -149,18 +149,29 @@ struct JobDetail: View {
             if showingBytes {
                 RawBytesView(bytes: job.bytes)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 18) {
-                        ForEach(0..<printout.pageCount, id: \.self) { index in
-                            PageView(printout: printout, index: index, font: centre.font)
-                                .frame(width: printout.settings.paper.size.width * zoom,
-                                       height: printout.settings.paper.size.height * zoom)
-                                .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+                ScrollViewReader { reader in
+                    ScrollView {
+                        LazyVStack(spacing: 18) {
+                            ForEach(0..<printout.pageCount, id: \.self) { index in
+                                PageView(printout: printout, index: index, font: centre.font)
+                                    .frame(width: printout.settings.paper.size.width * zoom,
+                                           height: printout.settings.paper.size.height * zoom)
+                                    .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+                                    .id(index)
+                            }
+                        }
+                        .padding(24)
+                        .frame(maxWidth: .infinity)
+                    }
+                    // While it prints, the page being printed.
+                    .onChange(of: printout.pageCount) { _, count in
+                        if job.status == .printing, count > 0 {
+                            withAnimation { reader.scrollTo(count - 1, anchor: .top) }
                         }
                     }
-                    .padding(24)
-                    .frame(maxWidth: .infinity)
                 }
+                // (Each job from its first page.)
+                .id(job.id)
                 .background(Color(nsColor: .underPageBackgroundColor))
             }
         }
