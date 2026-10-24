@@ -71,7 +71,7 @@ public final class BasicDebugger {
     public private(set) var interpreters: [BasicInterpreter] = []
 
     /// The interpreter on `cpu`, looking for it if need be.
-    func interpreter(_ cpu: DebugCPU) -> BasicInterpreter? {
+    public func interpreter(_ cpu: DebugCPU) -> BasicInterpreter? {
         if !interpreters.contains(where: { $0.cpu == cpu }) {
             interpreters = findInterpreters()
         }
@@ -156,6 +156,11 @@ public final class BasicDebugger {
     func setHooks(host: inout [UInt8], parasite: inout [UInt8]) {
         guard isActive else { return }
         interpreters = findInterpreters()
+        // A second processor's BASIC is copied to it when it starts (at
+        // power on, or *BASIC): look again then.
+        if machine.secondProcessor != nil {
+            parasite[Self.languageEntry] |= Debugger.basicHook
+        }
         for i in interpreters {
             var addresses = [i.errorHandler]
             if errorStop == .off { addresses = [] }
@@ -184,8 +189,15 @@ public final class BasicDebugger {
         return found
     }
 
+    /// Where a second processor starts a language it's been sent.
+    static let languageEntry = 0x8000
+
     /// An instruction with the hook flag is about to run.
     func executing(_ cpu: DebugCPU, _ address: UInt16) {
+        if cpu == .parasite && Int(address) == Self.languageEntry {
+            if findInterpreters() != interpreters { debugger.updateFlags() }
+            return
+        }
         guard let i = interpreters.first(where: { i in
             i.cpu == cpu && (address == i.statement || address == i.errorHandler)
                 && (cpu == .parasite || Int(machine.romsel & 0x0F) == i.bank)
@@ -317,8 +329,13 @@ public final class BasicDebugger {
                            write: { a, v in machine.debugWrite(a < 0x8000 ? .mainRAM : .cpu(.host), a, v) })
     }
 
-    /// The CPU BASIC is (or was last) stopped on, or the host.
-    public var currentCPU: DebugCPU { stop?.cpu ?? .host }
+    /// The CPU BASIC is stopped on; or with a 6502 second processor
+    /// running BASIC, that (the host's BASIC can't run beside it); or the
+    /// host.
+    public var currentCPU: DebugCPU {
+        if let stop { return stop.cpu }
+        return machine.secondProcessor != nil && interpreter(.parasite) != nil ? .parasite : .host
+    }
 
     func lines(_ cpu: DebugCPU) -> [BasicLine] {
         let m = memory(cpu)
@@ -354,6 +371,56 @@ public final class BasicDebugger {
             if attempt == 0 { lineCache[cpu] = nil }
         }
         return nil
+    }
+
+    /// Puts a tokenised program at PAGE, as LOAD would, in the memory of
+    /// the CPU BASIC runs on (`currentCPU`, unless given).
+    public func load(_ program: [UInt8], cpu: DebugCPU? = nil) {
+        let m = memory(cpu ?? currentCPU)
+        let page = m.page
+        for (offset, byte) in program.enumerated() {
+            _ = m.write(page + offset, byte)
+        }
+        let top = page + program.count
+        // TOP, and where the variables start.
+        for address in [0x02, 0x12] {
+            _ = m.write(address, UInt8(top & 0xFF))
+            _ = m.write(address + 1, UInt8(top >> 8 & 0xFF))
+        }
+    }
+
+    public enum LoadError: Error, CustomStringConvertible, Equatable {
+        /// BASIC isn't the language (another is, or there's no BASIC ROM).
+        case noBASIC
+        /// BASIC is running a program.
+        case running
+
+        public var description: String {
+            switch self {
+            case .noBASIC: "BASIC isn't running"
+            case .running: "a BASIC program is running: stop it first (Escape)"
+            }
+        }
+    }
+
+    /// Loads a program (as `load`) if BASIC is the language, at its
+    /// prompt rather than running a program.
+    public func loadAtPrompt(_ program: [UInt8]) throws(LoadError) {
+        let cpu = currentCPU
+        guard let i = interpreter(cpu) else { throw .noBASIC }
+        if cpu == .host {
+            guard let bank = i.bank, Int(machine.romsel & 0x0F) == bank else { throw .noBASIC }
+        }
+        // At the prompt, the text pointer is in the command line, at &0700.
+        guard memory(cpu)[0x0C] == 0x07 else { throw .running }
+        load(program, cpu: cpu)
+    }
+
+    /// A program file's contents, tokenised: tokenised already (as SAVE
+    /// writes it), or text, with or without line numbers.
+    public static func program(fromFile bytes: [UInt8]) throws(BBCBasic.Error) -> [UInt8] {
+        if BBCBasic.isProgram(bytes) { return bytes }
+        return try BBCBasic.tokenise(String(decoding: bytes, as: UTF8.self))
     }
 
     /// The program as LIST shows it, a line at a time.

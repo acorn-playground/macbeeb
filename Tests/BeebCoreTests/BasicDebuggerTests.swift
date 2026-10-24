@@ -91,8 +91,8 @@ struct BasicDebuggerTests {
     410 =Q*2
     """
 
-    func machine(_ model: BBCMicro.Model = .modelB, program: String = Self.program) -> BBCMicro {
-        let m = BBCMicro(configuration: BeebROMs.configuration(for: model))
+    func machine(_ model: BBCMicro.Model = .modelB, secondProcessor: Bool = false, program: String = Self.program) -> BBCMicro {
+        let m = BBCMicro(configuration: BeebROMs.configuration(for: model, secondProcessor: secondProcessor))
         #expect(m.runUntilIdle())
         m.paste(program + "\n")
         #expect(m.runUntilIdle())
@@ -346,6 +346,60 @@ struct BasicDebuggerTests {
     @Test func listsTheProgram() throws {
         let m = machine(program: "10 PRINT \"HI\":GOTO 10")
         #expect(m.debugger.basic.listing().map { "\($0.number)\($0.text)" } == ["10 PRINT \"HI\":GOTO 10"])
+    }
+
+    @Test(arguments: [BBCMicro.Model.modelB, .master128])
+    func onTheSecondProcessor(model: BBCMicro.Model) throws {
+        let m = machine(model, secondProcessor: true)
+        let basic = m.debugger.basic
+        try basic.add(BasicBreakpoint(line: 120, condition: "N%=2"))
+        #expect(basic.interpreters.contains { $0.cpu == .parasite })
+        #expect(run(m) == .basicBreakpoint(id: 1, cpu: .parasite, line: 120))
+        #expect(basic.currentCPU == .parasite)
+        #expect(value(m, "N%") == .integer(2))
+        #expect(basic.callStack().map { $0.location?.line } == [120, 40])
+        #expect(basic.listing().count == 21)
+        #expect(step(m, .out) == .basicStepped(.parasite))
+        #expect(basic.stop?.location.line == 50)
+        // An error there too.
+        basic.removeAllBreakpoints()
+        basic.errorStop = .untrapped
+        #expect(run(m, "125 T=T/0\nRUN") == .basicError(cpu: .parasite, number: 18))
+        #expect(basic.error?.location.line == 125)
+        #expect(basic.callStack().map(\.name) == ["PROCadd", nil])
+    }
+
+    @Test func findsTheSecondProcessorsBASICOnceItsCopiedThere() throws {
+        // Breakpoints set before the machine has started.
+        let m = BBCMicro(configuration: BeebROMs.configuration(for: .modelB, secondProcessor: true))
+        let basic = m.debugger.basic
+        try basic.add(BasicBreakpoint(line: 20))
+        #expect(!basic.interpreters.contains { $0.cpu == .parasite })
+        #expect(m.runUntilIdle())
+        #expect(basic.interpreters.contains { $0.cpu == .parasite })
+        #expect(run(m, "10 A=1\n20 B=2\nRUN") == .basicBreakpoint(id: 1, cpu: .parasite, line: 20))
+        // Not stopped, the parasite's is the program to show.
+        basic.removeAllBreakpoints()
+        #expect(run(m, nil) == nil)
+        #expect(basic.currentCPU == .parasite)
+        #expect(basic.listing().map(\.number) == [10, 20])
+        #expect(basic.variable("B")?.value == .real(2))
+    }
+
+    @Test(arguments: [(BBCMicro.Model.modelB, false), (.master128, false), (.modelB, true)])
+    func loadsAProgramAtThePrompt(model: BBCMicro.Model, secondProcessor: Bool) throws {
+        let m = BBCMicro(configuration: BeebROMs.configuration(for: model, secondProcessor: secondProcessor))
+        #expect(m.runUntilIdle())
+        let program = try BasicDebugger.program(fromFile: Array("PRINT \"LOADED \";6*7\nEND".utf8))
+        try m.debugger.basic.loadAtPrompt(program)
+        #expect(run(m, "RUN") == nil)
+        #expect(m.screenText().contains("LOADED 42"))
+        // Not while a program's running (here, waiting at INPUT).
+        try m.debugger.basic.loadAtPrompt(try BasicDebugger.program(fromFile: Array("INPUT A".utf8)))
+        #expect(run(m, "RUN") == nil)
+        #expect(throws: BasicDebugger.LoadError.running) { try m.debugger.basic.loadAtPrompt(program) }
+        // Tokenised already.
+        #expect(try BasicDebugger.program(fromFile: program) == program)
     }
 
     @Test func snapshotForTheDebuggerWindow() throws {

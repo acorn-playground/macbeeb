@@ -68,7 +68,7 @@ struct DebuggerToolbar: ToolbarContent {
             .help("Debug machine code, or a BASIC program by its lines")
         }
         ToolbarItem(placement: .navigation) {
-            if model.snapshot?.hasSecondProcessor == true {
+            if model.snapshot?.hasSecondProcessor == true && !model.view.basic {
                 Picker("CPU", selection: $model.view.cpu) {
                     Text("Host").tag(DebugCPU.host)
                     Text("Second Processor").tag(DebugCPU.parasite)

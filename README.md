@@ -193,6 +193,17 @@ stepping over, into, out and back, reverse continue; call stacks from the
 breakpoints on any address; and the hardware state. The CPUs are threads.
 `Examples/hello-ca65` is a program to try it on.
 
+BBC BASIC programs debug the same way: launch with `"basic":
+"${workspaceFolder}/game.bas"` (or press F5 in a `.bas` file), and the
+program (text, with or without line numbers, or tokenised as SAVE writes
+it) is loaded at PAGE and RUN. Breakpoints go on its lines, with
+conditions in BASIC; steps go a statement at a time; the call stack is its
+PROCs and FNs; the variables are BASIC's (LOCALs, the rest, arrays, @% to
+Z%), to change too; the debug console and hovers evaluate BASIC; and BASIC
+errors are exceptions, stopping where they happen. It works on a 6502
+Second Processor too (`"secondProcessor": true`). `Examples/hello-basic`
+is a program to try.
+
 Symbols (ld65 debug info, or label files from ld65 `-Ln`, VICE or
 `name = $1234` lists) work in the app's debugger and the agent tools too:
 `load_symbols`, then names in addresses and expressions, `hello.s:19` as a
@@ -233,6 +244,11 @@ device's state, the instruction trace and log output, for either CPU.
 Continue/pause is ⌃⌘Y, step over/into/out are F6/F7/F8, and the Step By
 menu goes by cycle, scanline, frame or interrupt. While it's open, the
 machine window shows the screen address under the mouse.
+
+Drop a BASIC program (`.bas`: text, with or without line numbers, or
+tokenised) on a machine window, or open one with MacBeeb, and it's loaded
+at PAGE and RUN, on a second processor too, as long as BASIC is at its
+prompt.
 
 Its BASIC view (the toolbar's Machine Code / BASIC switch; it switches
 itself when a BASIC breakpoint or error stops the program) debugs a BBC

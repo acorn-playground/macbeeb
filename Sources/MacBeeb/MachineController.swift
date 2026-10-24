@@ -428,6 +428,10 @@ final class MachineController {
                     try? rep.representation(using: .png, properties: [:])?
                         .write(to: URL(fileURLWithPath: path.replacingOccurrences(of: ".png", with: "-debugger.png")))
                 }
+            } else if let file = UserDefaults.standard.string(forKey: "MacBeebSelfTestBasicFile") {
+                // A BASIC program, as if dropped on the window.
+                runBASICProgram(URL(fileURLWithPath: file))
+                try? await Task.sleep(for: .seconds(3))
             } else if UserDefaults.standard.bool(forKey: "MacBeebSelfTestBasicDebugger") {
                 // A program stopped at a BASIC breakpoint in a PROC, then
                 // stepped, then stopped at an error: the debugger's BASIC
@@ -901,6 +905,43 @@ final class MachineController {
         })
         tapeName = url.lastPathComponent
         NSDocumentController.shared.noteNewRecentDocumentURL(url)
+    }
+
+    /// A BASIC program file (text or tokenised), dropped or opened: loaded
+    /// at PAGE and RUN, as CHAIN would, if BASIC is at its prompt.
+    func runBASICProgram(_ url: URL) {
+        let program: [UInt8]
+        do {
+            program = try BasicDebugger.program(fromFile: [UInt8](Data(contentsOf: url)))
+        } catch {
+            NSAlert(error: error).runModal()
+            return
+        }
+        let name = url.lastPathComponent
+        Task {
+            let problem: String?
+            do {
+                problem = try await host.performAsync { session -> String? in
+                    do {
+                        try session.machine.debugger.basic.loadAtPrompt(program)
+                        session.machine.paste("RUN\n")
+                        return nil
+                    } catch {
+                        return "\(error)"
+                    }
+                }
+            } catch {
+                problem = "\(error)"
+            }
+            if let problem {
+                showToast("Can't run \(name): \(problem)")
+            } else {
+                showToast("Running \(name)")
+                if !LaunchScreen.isSelfTest {
+                    NSDocumentController.shared.noteNewRecentDocumentURL(url)
+                }
+            }
+        }
     }
 
     func rewindTape() {

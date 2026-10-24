@@ -175,6 +175,23 @@ public enum BBCBasic {
     /// tens). Blank lines are skipped.
     public static func tokenise(_ text: String) throws(Error) -> [UInt8] {
         var program: [UInt8] = []
+        for line in try numberedLines(text) {
+            let body = tokeniseLine(line.body)
+            guard body.count + 4 <= 255 else { throw .lineTooLong(lineNumber: line.number) }
+            program += [0x0D, UInt8(line.number >> 8), UInt8(line.number & 0xFF), UInt8(body.count + 4)] + body
+        }
+        return program + [0x0D, 0xFF]
+    }
+
+    /// For each line of a program's text with something on it, its BASIC
+    /// line number: `textLine` counts from 1. As `tokenise` numbers them.
+    public static func lineNumbers(_ text: String) throws(Error) -> [(textLine: Int, number: Int)] {
+        try numberedLines(text).map { ($0.textLine, $0.number) }
+    }
+
+    /// The text's lines, numbered, with the text after the number.
+    static func numberedLines(_ text: String) throws(Error) -> [(textLine: Int, number: Int, body: [UInt8])] {
+        var result: [(textLine: Int, number: Int, body: [UInt8])] = []
         var last = 0
         let lines = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
             .components(separatedBy: "\n")
@@ -198,11 +215,9 @@ public enum BBCBasic {
                 guard number <= 32767 else { throw .badLineNumber(line: index + 1) }
             }
             last = number
-            let body = tokeniseLine(Array(bytes[i...]))
-            guard body.count + 4 <= 255 else { throw .lineTooLong(lineNumber: number) }
-            program += [0x0D, UInt8(number >> 8), UInt8(number & 0xFF), UInt8(body.count + 4)] + body
+            result.append((index + 1, number, Array(bytes[i...])))
         }
-        return program + [0x0D, 0xFF]
+        return result
     }
 
     static func isIdentifierCharacter(_ c: UInt8) -> Bool {

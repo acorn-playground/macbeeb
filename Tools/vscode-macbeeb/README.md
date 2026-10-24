@@ -52,6 +52,26 @@ BASIC; `hello.dbg` beside it is picked up automatically. `model`
 (`modelB`, `bPlus`, `master128`) and `secondProcessor` choose the machine;
 `disc` boots a disc instead. `attach` debugs whatever's running.
 
+For BBC BASIC, press F5 in a `.bas` file, or:
+
+    {
+      "type": "macbeeb",
+      "request": "launch",
+      "name": "Run BASIC on the BBC Micro",
+      "basic": "${workspaceFolder}/game.bas"
+    }
+
+The program can be text, with or without line numbers (lines without are
+numbered on in tens), or tokenised as SAVE writes it (it's listed to a file
+to show). It's loaded at PAGE and RUN. Breakpoints go on its lines, with
+conditions in BASIC (`I%>10`); F10/F11/Shift-F11 step a statement at a time
+over, into and out of PROCs, FNs and GOSUBs; the call stack is the PROC and
+FN calls; the Variables view has BASIC's variables, LOCALs first; the debug
+console and hovers evaluate BASIC expressions. Turn on the BASIC errors
+exception breakpoint to stop where an error happens. `stopOnEntry` stops
+at the first statement. With `secondProcessor`, BASIC runs there and is
+debugged there. See Examples/hello-basic.
+
 The CPUs appear as threads (the host, and the second processor if fitted).
 In the debug console, expressions use registers, flags, symbols and memory:
 `A`, `[&70]`, `{&FFFE}`, `count`, `PC+3`.

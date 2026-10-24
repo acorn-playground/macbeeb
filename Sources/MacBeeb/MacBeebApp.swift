@@ -555,6 +555,8 @@ struct MachineScreen: View {
             machine.insertDisc(url)
         case "uef", "csw":
             machine.insertTape(url)
+        case "bas":
+            machine.runBASICProgram(url)
         case SaveStateFile.fileExtension:
             machine.loadState(url)
         default:

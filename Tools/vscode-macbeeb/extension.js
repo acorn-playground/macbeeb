@@ -40,8 +40,8 @@ function activate(context) {
     }),
     vscode.debug.registerDebugConfigurationProvider("macbeeb", {
       resolveDebugConfiguration(folder, config) {
-        // F5 with no launch.json: assemble and run a BeebAsm file, or run
-        // the binary built from a ca65 one.
+        // F5 with no launch.json: assemble and run a BeebAsm file, run a
+        // BASIC program, or run the binary built from a ca65 one.
         if (!config.type && !config.request) {
           const editor = vscode.window.activeTextEditor;
           if (editor && editor.document.languageId === "beebasm") {
@@ -49,6 +49,11 @@ function activate(context) {
             config.request = "launch";
             config.name = "Assemble and run";
             config.source = editor.document.fileName;
+          } else if (editor && editor.document.languageId === "bbcbasic") {
+            config.type = "macbeeb";
+            config.request = "launch";
+            config.name = "Run BASIC on the BBC Micro";
+            config.basic = editor.document.fileName;
           } else if (editor && editor.document.languageId === "ca65") {
             config.type = "macbeeb";
             config.request = "launch";
@@ -56,8 +61,8 @@ function activate(context) {
             config.program = editor.document.fileName.replace(/\.[^.]+$/, ".bin");
           }
         }
-        // Save before assembling.
-        if (config.source) {
+        // Save before assembling (or loading BASIC).
+        if (config.source || config.basic) {
           return vscode.workspace.saveAll(false).then(() => config);
         }
         return config;

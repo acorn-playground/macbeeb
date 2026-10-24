@@ -53,7 +53,7 @@ public struct BasicDebugSnapshot: Sendable, Equatable {
 
     public init(machine m: BBCMicro, view: DebugView) {
         let basic = m.debugger.basic
-        let cpu = basic.stop?.cpu ?? (m.hasDebugCPU(view.cpu) ? view.cpu : .host)
+        let cpu = basic.currentCPU
         self.cpu = cpu
         interpreters = basic.findInterpreters().filter { $0.cpu == cpu }.map(\.name)
         breakpoints = basic.breakpoints

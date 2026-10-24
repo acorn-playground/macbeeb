@@ -1,0 +1,25 @@
+{
+  "scopeName": "source.bbcbasic",
+  "name": "BBC BASIC",
+  "patterns": [
+    { "name": "constant.numeric.line-number.bbcbasic", "match": "^\\s*[0-9]+" },
+    { "begin": "\\b(REM)", "end": "$", "beginCaptures": { "1": { "name": "keyword.other.rem.bbcbasic" } }, "name": "comment.line.rem.bbcbasic" },
+    { "name": "string.quoted.double.bbcbasic", "begin": "\"", "end": "\"|$" },
+    { "begin": "\\b(DATA)", "end": "$", "beginCaptures": { "1": { "name": "keyword.other.data.bbcbasic" } }, "name": "string.unquoted.data.bbcbasic" },
+    { "name": "meta.assembler.bbcbasic", "begin": "\\[", "end": "\\]", "patterns": [
+      { "name": "comment.line.assembler.bbcbasic", "match": "[\\\\;].*?(?=:|\\]|$)" },
+      { "name": "keyword.mnemonic.bbcbasic", "match": "(?i)\\b(adc|and|asl|bcc|bcs|beq|bit|bmi|bne|bpl|bra|brk|bvc|bvs|clc|cld|cli|clv|cmp|cpx|cpy|dec|dex|dey|eor|inc|inx|iny|jmp|jsr|lda|ldx|ldy|lsr|nop|ora|pha|php|phx|phy|pla|plp|plx|ply|rol|ror|rti|rts|sbc|sec|sed|sei|sta|stx|sty|stz|tax|tay|trb|tsb|tsx|txa|txs|tya|opt|equb|equw|equd|equs)\\b" },
+      { "name": "entity.name.function.label.bbcbasic", "match": "\\.[A-Za-z_][A-Za-z0-9_]*[%$]?" },
+      { "name": "constant.numeric.hex.bbcbasic", "match": "&[0-9A-Fa-f]+" }
+    ] },
+    { "name": "entity.name.function.bbcbasic", "match": "\\b(PROC|FN)[A-Za-z0-9_@`]+" },
+    { "name": "keyword.control.bbcbasic", "match": "\\b(IF|THEN|ELSE|FOR|TO|STEP|NEXT|REPEAT|UNTIL|GOTO|GOSUB|RETURN|ON|ERROR|DEF|ENDPROC|END|STOP|LOCAL|RUN|CHAIN)" },
+    { "name": "keyword.operator.word.bbcbasic", "match": "\\b(AND|OR|EOR|NOT|DIV|MOD)" },
+    { "name": "support.function.bbcbasic", "match": "\\b(ABS|ACS|ADVAL|ASC|ASN|ATN|BGET|CHR\\$|COS|COUNT|DEG|EOF|ERL|ERR|EVAL|EXP|EXT|GET\\$|GET|INKEY\\$|INKEY|INSTR\\(|INT|LEFT\\$\\(|LEN|LN|LOG|MID\\$\\(|OPENIN|OPENOUT|OPENUP|PI|POINT\\(|POS|RAD|RIGHT\\$\\(|RND|SGN|SIN|SQR|STR\\$|STRING\\$\\(|TAN|USR|VAL|VPOS|TRUE|FALSE|PAGE|TOP|LOMEM|HIMEM|TIME|PTR)" },
+    { "name": "keyword.other.bbcbasic", "match": "\\b(AUTO|BPUT|CALL|CLEAR|CLOSE|CLG|CLS|COLOUR|DELETE|DIM|DRAW|ENVELOPE|GCOL|INPUT|LET|LINE|LIST|LOAD|MODE|MOVE|NEW|OFF|OLD|OSCLI|PLOT|PRINT|READ|RENUMBER|REPORT|RESTORE|SAVE|SOUND|SPC|TAB\\(|TRACE|VDU|WIDTH)" },
+    { "name": "keyword.other.star-command.bbcbasic", "match": "^\\s*[0-9]*\\s*\\*.*$" },
+    { "name": "constant.numeric.hex.bbcbasic", "match": "&[0-9A-Fa-f]+" },
+    { "name": "constant.numeric.decimal.bbcbasic", "match": "\\b[0-9]+(\\.[0-9]*)?(E[-+]?[0-9]+)?\\b" },
+    { "name": "variable.other.bbcbasic", "match": "[A-Za-z_@`][A-Za-z0-9_`]*[%$]?" }
+  ]
+}

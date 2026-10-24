@@ -18,8 +18,8 @@ final class DAPClient: Sendable {
     let host: EmulatorHost
     private let nextSeq = Atomic<Int>(1)
 
-    init(model: BBCMicro.Model = .modelB) {
-        let configuration = BeebROMs.configuration(for: model)
+    init(model: BBCMicro.Model = .modelB, secondProcessor: Bool = false) {
+        let configuration = BeebROMs.configuration(for: model, secondProcessor: secondProcessor)
         host = EmulatorHost { BBCMicro(configuration: configuration) }
         host.start()
         host.send(.setSpeedLimited(false))
@@ -168,6 +168,151 @@ struct DAPTests {
         #expect(done["body"]?["reason"] == "breakpoint")
         let pc = try await client.request("evaluate", ["expression": "PC"])
         #expect(pc["body"]?["result"]?.stringValue?.hasPrefix("&200D") == true)
+        _ = try await client.request("disconnect")
+    }
+
+    // MARK: BASIC
+
+    static let basicProgram = """
+    REM adder
+    total=0
+    FOR I%=1 TO 3
+    PROCadd(I%)
+    NEXT
+    PRINT total
+    END
+
+    DEF PROCadd(N%)
+    LOCAL T
+    T=N%*2:total=total+T
+    ENDPROC
+    """
+
+    func basicFile(_ text: String, name: String = "adder.bas") throws -> String {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("macbeeb-dap-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent(name)
+        try Data(text.utf8).write(to: url)
+        return url.path
+    }
+
+    @Test(arguments: [false, true])
+    func debuggingABasicProgram(secondProcessor: Bool) async throws {
+        let path = try basicFile(Self.basicProgram)
+        let client = DAPClient(secondProcessor: secondProcessor)
+        let thread = secondProcessor ? 2 : 1
+        let initialize = try await client.request("initialize")
+        #expect(initialize["body"]?["exceptionBreakpointFilters"]?.arrayValue?.count == 2)
+        let launch = try await client.request("launch", ["basic": .string(path)])
+        #expect(launch["success"] == true, "\(launch)")
+        // The blank line's breakpoint moves to the DEF after it.
+        let set = try await client.request("setBreakpoints", ["source": ["path": .string(path)],
+                                                              "breakpoints": [["line": 11, "condition": "N%=2"], ["line": 8]]])
+        let results = try #require(set["body"]?["breakpoints"]?.arrayValue)
+        #expect(results.map { $0["line"] } == [11, 9] && results.allSatisfy { $0["verified"] == true }, "\(set)")
+        // Only the first, then.
+        _ = try await client.request("setBreakpoints", ["source": ["path": .string(path)],
+                                                        "breakpoints": [["line": 11, "condition": "N%=2"]]])
+        _ = try await client.request("configurationDone")
+
+        let stopped = try await client.event("stopped")
+        #expect(stopped["body"]?["reason"] == "breakpoint" && stopped["body"]?["threadId"] == .number(Double(thread)), "\(stopped)")
+        let trace = try await client.request("stackTrace", ["threadId": .number(Double(thread))])
+        let frames = try #require(trace["body"]?["stackFrames"]?.arrayValue)
+        #expect(frames.map { $0["name"] } == ["PROCadd", "main program"], "\(frames)")
+        #expect(frames.map { $0["line"] } == [11, 4])
+        #expect(frames[0]["source"]?["path"]?.stringValue == path)
+
+        let scopes = try await client.request("scopes", ["frameId": frames[0]["id"]!])
+        #expect(scopes["body"]?["scopes"]?.arrayValue?.first?["name"] == "Locals")
+        let locals = try await client.request("variables", ["variablesReference": .number(Double(DAPSession.basicLocals))])
+        let values = locals["body"]?["variables"]?.arrayValue?.map { "\($0["name"]!.stringValue!)=\($0["value"]!.stringValue!)" }
+        #expect(values == ["N%=2", "T=0"], "\(locals)")
+        let evaluated = try await client.request("evaluate", ["expression": "total*10", "frameId": frames[0]["id"]!])
+        #expect(evaluated["body"]?["result"] == "20", "\(evaluated)")
+        let changed = try await client.request("setVariable", ["variablesReference": .number(Double(DAPSession.basicLocals)),
+                                                               "name": "N%", "value": "5"])
+        #expect(changed["body"]?["value"] == "5")
+
+        // A statement, then out to the main program.
+        _ = try await client.request("next", ["threadId": .number(Double(thread))])
+        #expect(try await client.event("stopped")["body"]?["reason"] == "step")
+        let next = try await client.request("stackTrace", ["threadId": .number(Double(thread))])
+        #expect(next["body"]?["stackFrames"]?.arrayValue?.first?["line"] == 11)
+        #expect(next["body"]?["stackFrames"]?.arrayValue?.first?["column"] == 8, "\(next)")
+        _ = try await client.request("stepOut", ["threadId": .number(Double(thread))])
+        _ = try await client.event("stopped")
+        let out = try await client.request("stackTrace", ["threadId": .number(Double(thread))])
+        #expect(out["body"]?["stackFrames"]?.arrayValue?.map { $0["line"] } == [5], "\(out)")
+        // 2 + 10 so far.
+        let total = try await client.request("evaluate", ["expression": "total"])
+        #expect(total["body"]?["result"] == "12", "\(total)")
+        _ = try await client.request("disconnect")
+    }
+
+    @Test func basicErrorsAreExceptions() async throws {
+        let path = try basicFile("10 X=0\n20 PRINT 1/X\n")
+        let client = DAPClient(model: .master128)
+        _ = try await client.request("initialize")
+        _ = try await client.request("launch", ["basic": .string(path)])
+        _ = try await client.request("setExceptionBreakpoints", ["filters": ["basicUntrapped"]])
+        _ = try await client.request("configurationDone")
+        let stopped = try await client.event("stopped")
+        #expect(stopped["body"]?["reason"] == "exception", "\(stopped)")
+        #expect(stopped["body"]?["description"]?.stringValue?.hasPrefix("Division by zero (error 18) at line 20") == true, "\(stopped)")
+        let info = try await client.request("exceptionInfo", ["threadId": 1])
+        #expect(info["body"]?["exceptionId"] == "BASIC error 18" && info["body"]?["breakMode"] == "unhandled", "\(info)")
+        let trace = try await client.request("stackTrace", ["threadId": 1])
+        #expect(trace["body"]?["stackFrames"]?.arrayValue?.first?["line"] == 2)
+        _ = try await client.request("disconnect")
+        let after = try await client.request("continue")
+        #expect(after["success"] == true)
+        #expect(try await client.host.performAsync { $0.machine.debugger.basic.errorStop } == .off)
+    }
+
+    @Test func aTokenisedProgramIsListedToShow() async throws {
+        let tokenised = try BBCBasic.tokenise("10 FOR I%=1 TO 2\n20 PRINT I%\n30 NEXT\n")
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("macbeeb-dap-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let path = folder.appendingPathComponent("LOOP").path
+        try Data(tokenised).write(to: URL(fileURLWithPath: path))
+        let client = DAPClient()
+        _ = try await client.request("initialize")
+        _ = try await client.request("launch", ["basic": .string(path), "stopOnEntry": true])
+        _ = try await client.request("configurationDone")
+        _ = try await client.event("stopped")
+        let trace = try await client.request("stackTrace", ["threadId": 1])
+        let frame = try #require(trace["body"]?["stackFrames"]?.arrayValue?.first)
+        let listing = try #require(frame["source"]?["path"]?.stringValue)
+        #expect(listing.hasSuffix("LOOP.bas") && frame["line"] == 1, "\(frame)")
+        #expect(try String(contentsOfFile: listing, encoding: .utf8) == "10 FOR I%=1 TO 2\n20 PRINT I%\n30 NEXT\n")
+        // A breakpoint in the listing.
+        let set = try await client.request("setBreakpoints", ["source": ["path": .string(listing)], "breakpoints": [["line": 2]]])
+        #expect(set["body"]?["breakpoints"]?.arrayValue?.first?["verified"] == true)
+        _ = try await client.request("continue")
+        let stopped = try await client.event("stopped")
+        #expect(stopped["body"]?["reason"] == "breakpoint", "\(stopped)")
+        _ = try await client.request("disconnect")
+    }
+
+    @Test func theBasicExample() async throws {
+        let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Examples/hello-basic/primes.bas").path
+        let client = DAPClient()
+        _ = try await client.request("initialize")
+        let launch = try await client.request("launch", ["basic": .string(path)])
+        #expect(launch["success"] == true, "\(launch)")
+        // count%=count%+1, in PROCshow, the fifth time.
+        _ = try await client.request("setBreakpoints", ["source": ["path": .string(path)],
+                                                        "breakpoints": [["line": 24, "hitCondition": "5"]]])
+        _ = try await client.request("configurationDone")
+        let stopped = try await client.event("stopped")
+        #expect(stopped["body"]?["reason"] == "breakpoint", "\(stopped)")
+        let trace = try await client.request("stackTrace", ["threadId": 1])
+        let frames = try #require(trace["body"]?["stackFrames"]?.arrayValue)
+        #expect(frames.map { $0["name"] } == ["PROCshow", "main program"] && frames.map { $0["line"] } == [24, 6], "\(frames)")
+        let p = try await client.request("evaluate", ["expression": "p%", "frameId": frames[0]["id"]!])
+        #expect(p["body"]?["result"] == "11", "\(p)")
         _ = try await client.request("disconnect")
     }
 }

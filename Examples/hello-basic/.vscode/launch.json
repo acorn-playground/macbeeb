@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "macbeeb",
+      "request": "launch",
+      "name": "Run BASIC on the BBC Micro",
+      "basic": "${workspaceFolder}/primes.bas",
+      "stopOnEntry": true
+    },
+    {
+      "type": "macbeeb",
+      "request": "launch",
+      "name": "Run BASIC on a 6502 Second Processor",
+      "basic": "${workspaceFolder}/primes.bas",
+      "secondProcessor": true
+    }
+  ]
+}

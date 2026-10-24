@@ -1,7 +1,7 @@
 {
   "name": "macbeeb-debug",
   "displayName": "MacBeeb: BBC Micro debugger",
-  "description": "Debug 6502 programs on MacBeeb's emulated BBC Micro: assemble BeebAsm sources and run them, source breakpoints (BeebAsm or ld65 debug info), stepping (and stepping back), registers, memory, watchpoints.",
+  "description": "Debug 6502 programs and BBC BASIC on MacBeeb's emulated BBC Micro: assemble BeebAsm sources and run them, source breakpoints (BeebAsm or ld65 debug info), breakpoints in BBC BASIC programs (.bas), stepping (and stepping back), registers, BASIC variables, memory, watchpoints.",
   "version": "0.1.0",
   "publisher": "accidentalfish",
   "license": "GPL-3.0-only",
@@ -16,7 +16,8 @@
   "activationEvents": [
     "onDebugResolve:macbeeb",
     "onDebugDynamicConfigurations:macbeeb",
-    "onLanguage:beebasm"
+    "onLanguage:beebasm",
+    "onLanguage:bbcbasic"
   ],
   "contributes": {
     "languages": [
@@ -45,6 +46,18 @@
           ".asm"
         ],
         "configuration": "./language-configuration-beebasm.json"
+      },
+      {
+        "id": "bbcbasic",
+        "aliases": [
+          "BBC BASIC",
+          "bbcbasic"
+        ],
+        "extensions": [
+          ".bas",
+          ".bbc"
+        ],
+        "configuration": "./language-configuration-bbcbasic.json"
       }
     ],
     "grammars": [
@@ -57,6 +70,11 @@
         "language": "beebasm",
         "scopeName": "source.beebasm",
         "path": "./syntaxes/beebasm.tmLanguage.json"
+      },
+      {
+        "language": "bbcbasic",
+        "scopeName": "source.bbcbasic",
+        "path": "./syntaxes/bbcbasic.tmLanguage.json"
       }
     ],
     "breakpoints": [
@@ -65,6 +83,9 @@
       },
       {
         "language": "beebasm"
+      },
+      {
+        "language": "bbcbasic"
       }
     ],
     "debuggers": [
@@ -73,7 +94,8 @@
         "label": "MacBeeb (BBC Micro)",
         "languages": [
           "ca65",
-          "beebasm"
+          "beebasm",
+          "bbcbasic"
         ],
         "configurationAttributes": {
           "launch": {
@@ -103,7 +125,8 @@
                 "enum": [
                   "modelB",
                   "bPlus",
-                  "master128"
+                  "master128",
+                  "masterCompact"
                 ],
                 "description": "The machine."
               },
@@ -117,11 +140,11 @@
                   "host",
                   "parasite"
                 ],
-                "description": "Which CPU the program's code runs on."
+                "description": "Which CPU the program's code runs on (BASIC runs where its interpreter is: the second processor if fitted)."
               },
               "stopOnEntry": {
                 "type": "boolean",
-                "description": "Stop at the program's first instruction."
+                "description": "Stop at the program's first instruction (for BASIC, its first statement)."
               },
               "port": {
                 "type": "number",
@@ -138,6 +161,10 @@
               "beebasm": {
                 "type": "string",
                 "description": "With source: the beebasm to use (default MacBeeb's own, then the PATH)."
+              },
+              "basic": {
+                "type": "string",
+                "description": "A BBC BASIC program to run: text (.bas, with or without line numbers; lines without are numbered on in tens) or tokenised (as SAVE writes it, which is listed to a file to show). It's loaded at PAGE and RUN; breakpoints go on its lines."
               }
             }
           },
@@ -171,6 +198,15 @@
           }
         ],
         "configurationSnippets": [
+          {
+            "label": "MacBeeb: Run a BBC BASIC program",
+            "body": {
+              "type": "macbeeb",
+              "request": "launch",
+              "name": "Run BASIC on the BBC Micro",
+              "basic": "^\"\\${workspaceFolder}/${1:program.bas}\""
+            }
+          },
           {
             "label": "MacBeeb: Assemble and run a BeebAsm source",
             "body": {

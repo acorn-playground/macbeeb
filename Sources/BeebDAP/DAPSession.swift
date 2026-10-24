@@ -1,5 +1,6 @@
 // A Debug Adapter Protocol session: lets VS Code (or any DAP client) debug
-// the BBC Micro, with source-level breakpoints from ld65 debug info.
+// the BBC Micro, with source-level breakpoints from ld65 debug info, and
+// BBC BASIC programs by their lines (breakpoints in .bas files).
 //
 // Threads are the CPUs: 1 is the host, 2 the second processor. Stops are
 // noticed by polling the host, so they're reported whoever caused them
@@ -32,6 +33,60 @@ public actor DAPSession {
     private var lastLogCount = 0
     private var poller: Task<Void, Never>?
     private var stepping = false
+
+    /// The BASIC program launched: its text file (a listing, for a
+    /// tokenised one), and the program.
+    private var basicSource: String?
+    private var basicProgram: [UInt8]?
+    /// .bas files' lines, by path.
+    private var basicFiles: [String: BasicFile] = [:]
+    /// BASIC breakpoints set through this session, by file.
+    private var basicBreakpoints: [String: [Int]] = [:]
+    /// Whether exception breakpoints (BASIC errors) were set.
+    private var setErrorStop = false
+
+    /// A BASIC program's text: each line, and the BASIC line numbers'
+    /// text lines (from 1) and back.
+    struct BasicFile {
+        var lines: [String]
+        var textLines: [Int: Int]
+        var numbers: [(textLine: Int, number: Int)]
+
+        init(text: String) throws {
+            lines = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+                .components(separatedBy: "\n")
+            numbers = try BBCBasic.lineNumbers(text)
+            textLines = Dictionary(numbers.map { ($0.number, $0.textLine) }, uniquingKeysWith: { first, _ in first })
+        }
+
+        /// The BASIC line at text line `line`, or the next one after it.
+        func number(atOrAfter line: Int) -> (textLine: Int, number: Int)? {
+            numbers.first { $0.textLine >= line }
+        }
+
+        /// Where statement `statement` starts in BASIC line `number`'s text
+        /// (a column from 1), after its line number.
+        func column(_ number: Int, statement: Int) -> Int {
+            guard let textLine = textLines[number], lines.indices.contains(textLine - 1) else { return 1 }
+            let text = Array(lines[textLine - 1].unicodeScalars)
+            var i = 0
+            while i < text.count, text[i] == " " { i += 1 }
+            while i < text.count, ("0"..."9").contains(text[i]) { i += 1 }
+            var found = 1
+            var quoted = false
+            while i < text.count, found < statement {
+                if text[i] == "\"" { quoted.toggle() }
+                if text[i] == ":" && !quoted { found += 1 }
+                i += 1
+            }
+            while i < text.count, text[i] == " " { i += 1 }
+            return i + 1
+        }
+    }
+
+    static func isBasicFile(_ path: String) -> Bool {
+        ["bas", "bbc", "bbcbasic"].contains((path as NSString).pathExtension.lowercased())
+    }
 
     static let hostThread = 1
     static let parasiteThread = 2
@@ -112,7 +167,8 @@ public actor DAPSession {
         case "setBreakpoints": return try await setBreakpoints(args)
         case "setFunctionBreakpoints": return try await setFunctionBreakpoints(args)
         case "setInstructionBreakpoints": return try await setInstructionBreakpoints(args)
-        case "setExceptionBreakpoints": return ["breakpoints": []]
+        case "setExceptionBreakpoints": return try await setExceptionBreakpoints(args)
+        case "exceptionInfo": return try await exceptionInfo()
         case "dataBreakpointInfo": return try await dataBreakpointInfo(args)
         case "setDataBreakpoints": return try await setDataBreakpoints(args)
         case "threads": return try await threads()
@@ -127,9 +183,9 @@ public actor DAPSession {
         case "continue":
             try await machine { $0.machine.debugger.resume() }
             return ["allThreadsContinued": true]
-        case "next": return try await step(.stepOver, args)
-        case "stepIn": return try await step(.stepInstruction, args)
-        case "stepOut": return try await step(.stepOut, args)
+        case "next": return try await step(.stepOver, basic: .over, args)
+        case "stepIn": return try await step(.stepInstruction, basic: .into, args)
+        case "stepOut": return try await step(.stepOut, basic: .out, args)
         case "stepBack":
             let cpu = Self.cpu(args)
             try await machine { s in try s.machine.debugger.stepBack(cpu) }
@@ -138,7 +194,7 @@ public actor DAPSession {
             try await machine { s in try s.machine.debugger.reverseContinue() }
             return nil
         case "pause":
-            try await machine { $0.machine.debugger.requestStop() }
+            try await pause()
             return nil
         case "disconnect", "terminate":
             try await disconnect()
@@ -167,6 +223,13 @@ public actor DAPSession {
             "supportsSteppingGranularity": true,
             "supportsTerminateRequest": true,
             "supportsValueFormattingOptions": false,
+            "supportsExceptionInfoRequest": true,
+            "exceptionBreakpointFilters": [
+                ["filter": "basicUntrapped", "label": "BASIC errors", "default": true,
+                 "description": "Stop where a BASIC error happens that no ON ERROR handles (Escape and STOP too)"],
+                ["filter": "basicAll", "label": "All BASIC errors", "default": false,
+                 "description": "Stop at every BASIC error, before ON ERROR sees it"],
+            ],
         ]
     }
 
@@ -200,6 +263,9 @@ public actor DAPSession {
             }
         }
         let hasSecondProcessor = try await machine { $0.machine.secondProcessor != nil }
+        if launching, let path = args["basic"]?.stringValue {
+            try loadBasicSource(path)
+        }
         if let name = args["cpu"]?.stringValue, let cpu = DebugCPU(rawValue: name) {
             codeCPU = cpu
         } else {
@@ -256,14 +322,65 @@ public actor DAPSession {
                 _ = s.advance(until: { m.reachedIdle }, maxSeconds: 10)
                 m.watchForIdle(false)
             }
+            if let program = basicProgram {
+                let found = try await machine { s -> Bool in
+                    let basic = s.machine.debugger.basic
+                    guard basic.interpreter(basic.currentCPU) != nil else { return false }
+                    basic.load(program)
+                    return true
+                }
+                guard found else { throw DAPError("BASIC isn't running on the BBC Micro (no BASIC ROM found)") }
+                output("Loaded \((basicSource! as NSString).lastPathComponent) (\(program.count) bytes) at PAGE\n")
+            }
         }
+    }
+
+    /// Reads a BASIC program to run: text (lines with or without numbers),
+    /// or tokenised (as SAVE writes it), which is listed to a file to show.
+    private func loadBasicSource(_ path: String) throws {
+        guard let data = FileManager.default.contents(atPath: path) else { throw DAPError("can't read \(path)") }
+        let bytes = [UInt8](data)
+        if BBCBasic.isProgram(bytes) {
+            let listing = FileManager.default.temporaryDirectory.appendingPathComponent("MacBeeb BASIC", isDirectory: true)
+            try? FileManager.default.createDirectory(at: listing, withIntermediateDirectories: true)
+            let file = listing.appendingPathComponent((path as NSString).lastPathComponent + ".bas")
+            let text = BBCBasic.list(bytes)
+            try Data(text.utf8).write(to: file)
+            basicSource = file.path
+            basicFiles[file.path] = try BasicFile(text: text)
+            basicProgram = bytes
+        } else {
+            let text = String(decoding: bytes, as: UTF8.self)
+            do {
+                basicProgram = try BBCBasic.tokenise(text)
+                basicFiles[path] = try BasicFile(text: text)
+            } catch {
+                throw DAPError("\((path as NSString).lastPathComponent): \(error.localizedDescription)")
+            }
+            basicSource = path
+        }
+    }
+
+    /// A .bas file's lines, read when first needed.
+    private func basicFile(_ path: String) -> BasicFile? {
+        if let file = basicFiles[path] { return file }
+        guard let data = FileManager.default.contents(atPath: path),
+              let file = try? BasicFile(text: String(decoding: data, as: UTF8.self)) else { return nil }
+        basicFiles[path] = file
+        return file
     }
 
     /// After the breakpoints are set: run the program.
     private func start() async throws {
         let args = launch
         let stopOnEntry = args["stopOnEntry"]?.boolValue ?? false
-        if let program = args["program"]?.stringValue {
+        if basicProgram != nil {
+            try await machine { s in
+                // Stopping on entry: at the first statement.
+                if stopOnEntry { s.machine.debugger.begin(basic: .into) }
+                s.machine.paste("RUN\n")
+            }
+        } else if let program = args["program"]?.stringValue {
             let bytes = [UInt8](try Data(contentsOf: URL(fileURLWithPath: program)))
             let load = args["loadAddress"]?.intValue ?? 0x2000
             let exec = args["execAddress"]?.intValue ?? load
@@ -317,10 +434,16 @@ public actor DAPSession {
     private func disconnect() async throws {
         poller?.cancel()
         let ids = sourceBreakpoints.values.flatMap { $0 } + functionBreakpoints + instructionBreakpoints + dataBreakpoints
+        let basicIDs = basicBreakpoints.values.flatMap { $0 }
+        let errorStop = setErrorStop
         try await machine { s in
             for id in ids { s.machine.debugger.remove(id: id) }
+            for id in basicIDs { s.machine.debugger.basic.remove(id: id) }
+            if errorStop { s.machine.debugger.basic.errorStop = .off }
             s.machine.debugger.resume()
         }
+        basicBreakpoints = [:]
+        setErrorStop = false
         sourceBreakpoints = [:]
         functionBreakpoints = []
         instructionBreakpoints = []
@@ -401,6 +524,9 @@ public actor DAPSession {
         case .basicError(let cpu, _):
             thread = cpu == .parasite ? Self.parasiteThread : Self.hostThread
             reason = "exception"
+            if let error = try? await machine({ $0.machine.debugger.basic.error }) {
+                body["description"] = .string("\(error.message) (error \(error.number)) at \(error.location)")
+            }
         }
         body["reason"] = .string(reason)
         body["threadId"] = .number(Double(thread))
@@ -408,13 +534,39 @@ public actor DAPSession {
         event("stopped", .object(body))
     }
 
-    private func step(_ command: RunCommand, _ args: JSONValue) async throws -> JSONValue? {
+    /// Steps by BASIC statement when stopped in BASIC (or debugging a
+    /// BASIC program), unless asked for instructions.
+    private func step(_ command: RunCommand, basic: BasicStep, _ args: JSONValue) async throws -> JSONValue? {
         let cpu = Self.cpu(args)
+        let byInstruction = args["granularity"]?.stringValue == "instruction"
+        let launchedBasic = basicSource != nil
         try await machine { s in
+            let debugger = s.machine.debugger
+            if !byInstruction && (debugger.stopReason?.isBasic == true || launchedBasic && debugger.basic.stop != nil) {
+                debugger.begin(basic: basic)
+                return
+            }
             guard s.machine.hasDebugCPU(cpu) else { throw DAPError("there's no second processor") }
-            s.machine.debugger.begin(command, cpu: cpu)
+            debugger.begin(command, cpu: cpu)
         }
         return nil
+    }
+
+    /// Debugging BASIC, a pause stops at the next statement, if one comes
+    /// soon (it may be waiting for a key, or not running).
+    private func pause() async throws {
+        guard basicSource != nil || !basicBreakpoints.isEmpty else {
+            try await machine { $0.machine.debugger.requestStop() }
+            return
+        }
+        try await machine { $0.machine.debugger.begin(basic: .into) }
+        for _ in 0..<25 {
+            try await Task.sleep(for: .milliseconds(20))
+            if host.debugStop != nil { return }
+        }
+        try await machine { s in
+            if s.machine.debugger.stopReason == nil { s.machine.debugger.requestStop() }
+        }
     }
 
     // MARK: Breakpoints
@@ -430,6 +582,9 @@ public actor DAPSession {
     private func setBreakpoints(_ args: JSONValue) async throws -> JSONValue {
         guard let path = args["source"]?["path"]?.stringValue else { throw DAPError("source.path is required") }
         let requested = args["breakpoints"]?.arrayValue ?? []
+        if Self.isBasicFile(path) || path == basicSource {
+            return try await setBasicBreakpoints(path, requested)
+        }
         let old = sourceBreakpoints[path] ?? []
         let cpu = codeCPU
         let results = try await machine { s -> ([Int], [JSONValue]) in
@@ -458,6 +613,59 @@ public actor DAPSession {
         }
         sourceBreakpoints[path] = results.0
         return ["breakpoints": .array(results.1)]
+    }
+
+    /// Breakpoints in a BASIC program's text: on its BASIC lines.
+    private func setBasicBreakpoints(_ path: String, _ requested: [JSONValue]) async throws -> JSONValue {
+        let old = basicBreakpoints[path] ?? []
+        let file = basicFile(path)
+        let results = try await machine { s -> ([Int], [JSONValue]) in
+            let basic = s.machine.debugger.basic
+            for id in old { basic.remove(id: id) }
+            var ids: [Int] = []
+            var results: [JSONValue] = []
+            for b in requested {
+                guard let line = b["line"]?.intValue else { continue }
+                guard let target = file?.number(atOrAfter: line) else {
+                    results.append(["verified": false, "line": .number(Double(line)), "message": "No BASIC line here"])
+                    continue
+                }
+                let (condition, hit, log) = Self.options(b)
+                do {
+                    let added = try basic.add(BasicBreakpoint(line: target.number, condition: condition, hitTarget: hit, logMessage: log))
+                    ids.append(added.id)
+                    results.append(["id": .number(Double(added.id)), "verified": true, "line": .number(Double(target.textLine))])
+                } catch {
+                    results.append(["verified": false, "line": .number(Double(line)), "message": .string("Condition: \(error)")])
+                }
+            }
+            return (ids, results)
+        }
+        basicBreakpoints[path] = results.0
+        return ["breakpoints": .array(results.1)]
+    }
+
+    private func setExceptionBreakpoints(_ args: JSONValue) async throws -> JSONValue {
+        let filters = (args["filters"]?.arrayValue ?? []).compactMap(\.stringValue)
+        let mode: BasicDebugger.ErrorStop = filters.contains("basicAll") ? .all : filters.contains("basicUntrapped") ? .untrapped : .off
+        // Leave errors alone unless asked, or this session asked before.
+        if mode != .off || setErrorStop {
+            try await machine { $0.machine.debugger.basic.errorStop = mode }
+            setErrorStop = mode != .off
+        }
+        return ["breakpoints": .array(filters.map { _ in ["verified": true] })]
+    }
+
+    private func exceptionInfo() async throws -> JSONValue {
+        let info = try await machine { s -> (BasicError, BasicDebugger.ErrorStop)? in
+            let basic = s.machine.debugger.basic
+            return basic.error.map { ($0, basic.errorStop) }
+        }
+        guard let (error, mode) = info else { throw DAPError("not stopped at an error") }
+        return ["exceptionId": .string("BASIC error \(error.number)"), "description": .string(error.message),
+                "breakMode": .string(mode == .all && error.trapped ? "always" : "unhandled"),
+                "details": ["message": .string("\(error.message) at \(error.location)"),
+                            "typeName": .string(error.trapped ? "Error (ON ERROR will handle it)" : "Error")]]
     }
 
     private func setFunctionBreakpoints(_ args: JSONValue) async throws -> JSONValue {
@@ -598,6 +806,9 @@ public actor DAPSession {
     /// the stack that follow a JSR.
     private func stackTrace(_ args: JSONValue) async throws -> JSONValue {
         let cpu = Self.cpu(args)
+        if let basic = try await basicStackTrace(cpu) {
+            return basic
+        }
         let frames = try await machine { s -> [JSONValue] in
             let m = s.machine
             let symbols = m.debugger.symbols(cpu)
@@ -620,6 +831,148 @@ public actor DAPSession {
         return ["stackFrames": .array(frames), "totalFrames": .number(Double(frames.count))]
     }
 
+    // MARK: BASIC
+
+    /// BASIC frames' IDs: this, plus the index (0 innermost).
+    static let basicFrames = 5000
+    /// Variable references: BASIC's locals, other variables, arrays and
+    /// @%-Z%; an array's elements are `basicArrays` + its index.
+    static let basicLocals = 100, basicVariables = 101, basicArrayList = 102, basicResident = 103
+    static let basicArrays = 20000
+
+    /// The PROC/FN calls, if stopped in BASIC on `cpu`, as frames in the
+    /// program's source (or, if it's not the program in memory, a listing).
+    private func basicStackTrace(_ cpu: DebugCPU) async throws -> JSONValue? {
+        let found = try await machine { s -> ([BasicFrame], [(number: Int, text: String)])? in
+            let basic = s.machine.debugger.basic
+            guard let stop = basic.stop, stop.cpu == cpu else { return nil }
+            return (basic.callStack(), basic.listing())
+        }
+        guard let (frames, listing) = found else { return nil }
+        var path = basicSource ?? (basicBreakpoints.count == 1 ? basicBreakpoints.keys.first : nil)
+        let known = Set(listing.map(\.number))
+        if let p = path, let file = basicFile(p),
+           !frames.compactMap({ $0.location?.line }).allSatisfy({ file.textLines[$0] != nil }) || !known.isSubset(of: Set(file.textLines.keys)) {
+            path = nil
+        }
+        if path == nil {
+            path = writeListing(listing)
+        }
+        let file = path.flatMap(basicFile)
+        let stackFrames: [JSONValue] = frames.enumerated().map { index, frame in
+            var json: [String: JSONValue] = ["id": .number(Double(Self.basicFrames + index)),
+                                             "name": .string(frame.name ?? "main program"), "line": 0, "column": 0]
+            if let location = frame.location, let path, let file, let line = file.textLines[location.line] {
+                json["source"] = ["name": .string((path as NSString).lastPathComponent), "path": .string(path)]
+                json["line"] = .number(Double(line))
+                json["column"] = .number(Double(file.column(location.line, statement: location.statement)))
+            } else if frame.location == nil {
+                json["name"] = .string((frame.name ?? "main program") + " (a command typed in)")
+            }
+            return .object(json)
+        }
+        return ["stackFrames": .array(stackFrames), "totalFrames": .number(Double(stackFrames.count))]
+    }
+
+    /// The program in memory, listed to a file to show.
+    private func writeListing(_ listing: [(number: Int, text: String)]) -> String? {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("MacBeeb BASIC", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent("Program in memory.bas")
+        let text = listing.map { "\($0.number)\($0.text)" }.joined(separator: "\n") + "\n"
+        guard (try? Data(text.utf8).write(to: url)) != nil, let file = try? BasicFile(text: text) else { return nil }
+        basicFiles[url.path] = file
+        return url.path
+    }
+
+    private func basicScopes(_ frame: Int) -> JSONValue {
+        var scopes: [JSONValue] = []
+        if frame == 0 {
+            scopes.append(["name": "Locals", "presentationHint": "locals", "variablesReference": .number(Double(Self.basicLocals)), "expensive": false])
+        }
+        scopes += [
+            ["name": "Variables", "variablesReference": .number(Double(Self.basicVariables)), "expensive": false],
+            ["name": "Arrays", "variablesReference": .number(Double(Self.basicArrayList)), "expensive": false],
+            ["name": "@% to Z%", "variablesReference": .number(Double(Self.basicResident)), "expensive": false],
+        ]
+        return ["scopes": .array(scopes)]
+    }
+
+    static func isResident(_ v: BasicVariable) -> Bool { v.address >= 0x0400 && v.address < 0x046C }
+
+    private func basicVariables(_ reference: Int) async throws -> [JSONValue] {
+        try await machine { s -> [JSONValue] in
+            let basic = s.machine.debugger.basic
+            let all = basic.variables()
+            let arrays = all.filter { $0.dimensions != nil }
+            func json(_ name: String, _ value: BasicValue) -> JSONValue {
+                let type = switch value {
+                case .integer: "integer"
+                case .real: "real"
+                case .string: "string"
+                }
+                return ["name": .string(name), "value": .string(value.description), "type": .string(type),
+                        "evaluateName": .string(name), "variablesReference": 0]
+            }
+            switch reference {
+            case Self.basicLocals, Self.basicVariables, Self.basicResident:
+                return all.filter { v in
+                    guard v.dimensions == nil else { return false }
+                    switch reference {
+                    case Self.basicLocals: return v.isLocal
+                    case Self.basicResident: return Self.isResident(v)
+                    default: return !v.isLocal && !Self.isResident(v)
+                    }
+                }.compactMap { v in v.value.map { json(v.name, $0) } }
+            case Self.basicArrayList:
+                return arrays.enumerated().map { index, v in
+                    let size = v.dimensions!.map(String.init).joined(separator: ",")
+                    let count = v.dimensions!.reduce(1) { $0 * ($1 + 1) }
+                    return ["name": .string(v.name + size + ")"), "value": .string("\(v.kind.rawValue) array, \(count) elements"),
+                            "variablesReference": .number(Double(Self.basicArrays + index)),
+                            "indexedVariables": .number(Double(count))]
+                }
+            default:
+                let index = reference - Self.basicArrays
+                guard arrays.indices.contains(index) else { return [] }
+                let array = arrays[index]
+                return basic.elements(of: array, count: 1000).map { indices, value in
+                    json(array.name + indices.map(String.init).joined(separator: ",") + ")", value)
+                }
+            }
+        }
+    }
+
+    private func setBasicVariable(_ name: String, _ text: String) async throws -> JSONValue {
+        let value = try await machine { s -> BasicValue in
+            let basic = s.machine.debugger.basic
+            do {
+                // An element: name(1,2).
+                if let open = name.firstIndex(of: "("), name.hasSuffix(")"), name.index(after: open) < name.index(before: name.endIndex) {
+                    let indices = name[name.index(after: open)..<name.index(before: name.endIndex)].split(separator: ",").compactMap { Int($0) }
+                    try basic.set(String(name[...open]), indices: indices, to: text)
+                } else {
+                    try basic.set(name, to: text)
+                }
+                return try basic.evaluate(name)
+            } catch {
+                throw DAPError("\(error)")
+            }
+        }
+        return ["value": .string(value.description)]
+    }
+
+    private func evaluateBasic(_ expression: String) async throws -> JSONValue {
+        let value = try await machine { s -> BasicValue in
+            do {
+                return try s.machine.debugger.basic.evaluate(expression)
+            } catch {
+                throw DAPError("\(error)")
+            }
+        }
+        return ["result": .string(value.description), "variablesReference": 0]
+    }
+
     static func frameName(_ address: UInt16, _ symbols: SymbolTable) -> String {
         if let near = symbols.nearest(below: address) {
             return near.offset == 0 ? near.name : "\(near.name)+\(near.offset)"
@@ -630,6 +983,9 @@ public actor DAPSession {
     // Variable references: 1/2 registers, 3/4 flags (host/parasite),
     // 10+ a hardware section.
     private func scopes(_ args: JSONValue) -> JSONValue {
+        if let frame = args["frameId"]?.intValue, frame >= Self.basicFrames {
+            return basicScopes(frame - Self.basicFrames)
+        }
         let parasite = (args["frameId"]?.intValue ?? 0) >= 1000
         return ["scopes": [
             ["name": "Registers", "variablesReference": .number(parasite ? 2 : 1), "expensive": false],
@@ -640,6 +996,9 @@ public actor DAPSession {
 
     private func variables(_ args: JSONValue) async throws -> JSONValue {
         let reference = args["variablesReference"]?.intValue ?? 0
+        if (Self.basicLocals...Self.basicResident).contains(reference) || reference >= Self.basicArrays {
+            return ["variables": .array(try await basicVariables(reference))]
+        }
         let variables = try await machine { s -> [JSONValue] in
             let m = s.machine
             switch reference {
@@ -670,6 +1029,10 @@ public actor DAPSession {
 
     private func setVariable(_ args: JSONValue) async throws -> JSONValue {
         let reference = args["variablesReference"]?.intValue ?? 0
+        if (Self.basicLocals...Self.basicResident).contains(reference) || reference >= Self.basicArrays,
+           let name = args["name"]?.stringValue, let text = args["value"]?.stringValue {
+            return try await setBasicVariable(name, text)
+        }
         guard (1...4).contains(reference), let name = args["name"]?.stringValue, let text = args["value"]?.stringValue else {
             throw DAPError("only registers and flags can be set")
         }
@@ -685,6 +1048,13 @@ public actor DAPSession {
 
     private func evaluate(_ args: JSONValue) async throws -> JSONValue {
         guard let expression = args["expression"]?.stringValue else { throw DAPError("expression is required") }
+        // In a BASIC frame (or a BASIC program's session), BASIC.
+        if let frame = args["frameId"]?.intValue, frame >= Self.basicFrames {
+            return try await evaluateBasic(expression)
+        }
+        if args["frameId"] == nil && basicSource != nil {
+            return try await evaluateBasic(expression)
+        }
         let cpu = args["frameId"].map { ($0.intValue ?? 0) >= 1000 ? DebugCPU.parasite : .host } ?? codeCPU
         let context = args["context"]?.stringValue ?? "repl"
         let result = try await machine { s -> (String, Int?) in
