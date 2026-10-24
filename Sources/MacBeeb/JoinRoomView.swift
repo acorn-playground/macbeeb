@@ -39,7 +39,7 @@ struct JoinRoomView: View {
         let text = typed.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
         if let url = URL(string: text), let scheme = url.scheme?.lowercased() {
-            if scheme == "macbeeb", let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+            if scheme == "macbeeb" || scheme == "macarch", let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
                let service = items.first(where: { $0.name == "service" })?.value.flatMap({ try? InternetEconetService.validate($0).get() }),
                let token = items.first(where: { $0.name == "invite" })?.value {
                 return Invitation(service: service, token: token)

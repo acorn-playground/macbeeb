@@ -302,6 +302,13 @@ or link: you see the network's name and machines before anything happens.
 Join with a new network (a Model B or a Master 128, at a free station
 number), or one you have open.
 
+**Archimedes too**: MacArch, the Archimedes emulator, shares and joins the
+same networks. Its Archimedes appear on your canvas beside your BBCs
+(labelled "Archimedes, in MacArch"), and they talk across: a BBC can log on
+to an Archimedes' Level 4 file server, and an Archimedes to a BBC's Level 2
+server. An invitation from MacArch joins from MacBeeb like any other, and
+yours from MacArch.
+
 **In the network**: other people's machines are on your canvas as dashed
 teal cards, joined to your cable: whose they are, whether they're online,
 and the round trip to them. The globe button shows who's there; the host

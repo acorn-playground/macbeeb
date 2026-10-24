@@ -607,8 +607,9 @@ struct BusDrawing: View {
     }
 }
 
-/// A machine in the network's Internet room, on someone else's Mac: who
-/// it is and whose, whether it's online, and how far away.
+/// A machine in the network's Internet room, on someone else's Mac (a BBC
+/// Micro in MacBeeb, or an Archimedes in MacArch): who it is and whose,
+/// whether it's online, and how far away.
 struct RemoteStationCard: View {
     let station: StationView
     let participant: ParticipantView?
@@ -616,7 +617,23 @@ struct RemoteStationCard: View {
     var screen: CGImage?
 
     static let width = 236.0
-    static var height: Double { 150.0 }
+    static var height: Double { 160.0 }
+
+    /// An Archimedes, from MacArch.
+    private var isArchimedes: Bool { participant?.app == "MacArch" }
+
+    /// What sort of machine, from the app it's in.
+    private var family: String {
+        switch participant?.app {
+        case "MacArch": "Archimedes, in MacArch"
+        case "MacBeeb": "BBC Micro, in MacBeeb"
+        case let app?: "in \(app)"
+        case nil: "on another Mac"
+        }
+    }
+
+    /// The picture's shape: a BBC's, or an Archimedes monitor's 4:3.
+    private var aspect: CGFloat { isArchimedes ? 4.0 / 3.0 : Renderer.aspect }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -624,7 +641,7 @@ struct RemoteStationCard: View {
                 Image(decorative: screen, scale: 1)
                     .resizable()
                     .interpolation(.medium)
-                    .aspectRatio(Renderer.aspect, contentMode: .fit)
+                    .aspectRatio(aspect, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(alignment: .topLeading) {
                         Image(systemName: "globe")
@@ -635,6 +652,11 @@ struct RemoteStationCard: View {
                     }
             }
             HStack {
+                if isArchimedes {
+                    Image(systemName: "desktopcomputer")
+                        .font(.title2)
+                        .foregroundStyle(station.online ? .teal : .secondary)
+                }
                 Image(systemName: "globe")
                     .font(.title2)
                     .foregroundStyle(station.online ? .teal : .secondary)
@@ -661,11 +683,15 @@ struct RemoteStationCard: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                    Text(family)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
         }
         .padding(12)
-        .frame(width: Self.width, height: screen == nil ? 150 : MachineCard.height)
+        .frame(width: Self.width, height: screen == nil ? Self.height : MachineCard.height)
         .background(.background.opacity(0.92), in: RoundedRectangle(cornerRadius: 14))
         .overlay {
             RoundedRectangle(cornerRadius: 14)

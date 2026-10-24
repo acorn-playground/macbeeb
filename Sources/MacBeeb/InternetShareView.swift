@@ -58,7 +58,7 @@ struct InternetShareView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Share Over the Internet")
                         .font(.title2.weight(.semibold))
-                    Text("A private Econet network others join with a link or a code. Their BBC Micros appear on your network, and yours on theirs.")
+                    Text("A private Econet network others join with a link or a code, from MacBeeb or MacArch. Their BBC Micros and Archimedes appear on your network, and yours on theirs.")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
