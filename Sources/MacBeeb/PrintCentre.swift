@@ -38,10 +38,11 @@ final class PrintCentre {
         load()
     }
 
-    static var folder: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    /// (A self-test's jobs go in a folder of their own, not the user's.)
+    static let folder: URL = LaunchScreen.isSelfTest
+        ? FileManager.default.temporaryDirectory.appendingPathComponent("macbeeb-print-jobs-\(UUID().uuidString)", isDirectory: true)
+        : FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("MacBeeb/Print Jobs", isDirectory: true)
-    }
 
     /// Where a machine's printer sends its jobs (from any thread).
     nonisolated static func receiver() -> @Sendable (PrintJob) -> Void {
