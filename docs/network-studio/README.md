@@ -22,6 +22,7 @@ of one.
 | Template | What's in it |
 | --- | --- |
 | Econet Demo | A classroom ready to try: a Welcome machine with instructions, two Model Bs, a Master, and demo programs on the file server |
+| The Econet Times | A newsroom: an Editor and three reporters' BBCs, a file server for the stories and a printer server for the paper |
 | Distributed Mandelbrot | Eight worker BBCs and a Guide machine draw the Mandelbrot set between them over Econet |
 | Mandelbrot in Colour | The same in MODE 2, the Guide's VideoNuLA giving it sixteen colours, which cycle when it's done |
 | Two BBCs | Two Model Bs, stations 1 and 2, and a clock: the smallest network |
@@ -44,6 +45,45 @@ instructions. On any machine, type `*NET`, then:
 | `CHAIN "WELCOME"` | The instructions again |
 
 Watch the **Traffic** view while they run to see the frames each one sends.
+
+## The Econet Times
+
+A newspaper, written on three BBCs and printed from a fourth. **File ▸ New
+Network…**, then **The Econet Times**:
+- an **Editor** (station 1), whose screen is the editor's desk;
+- three **reporters** (stations 2–4, the last a Master 128), each at a
+  reporter's desk;
+- a file server (254) for the stories, and a printer server (235) for the
+  paper.
+
+On a reporter's BBC:
+1. Choose a desk: News, Sport, Weather or Clubs.
+2. Type a headline, or press RETURN to keep the one written for that desk.
+3. Type your name.
+4. Type the story, a paragraph at a time, with RETURN on its own to end it.
+   Or press RETURN straight away for the desk's own story.
+
+The story is filed with the file server, as a file named for its desk.
+Press **P** to print a proof of it on the printer server, or any other key
+to write another.
+
+The Editor's desk checks the file server every few seconds and lists what
+has been filed. Press **P** to print the edition, then open **Window ▸
+Print Centre**. The paper has the masthead drawn in the BBC's own
+characters (read from its font with OSWORD 10), then the stories in two
+columns, with headlines in Epson bold and underline. **N** starts the next
+edition: the desks are cleared, and the edition number goes up.
+
+Things to try:
+- **Print from two BBCs at once**: a proof on a reporter's BBC while the
+  Editor prints. The printer server prints one job at a time, so one of
+  them gets "No reply" from its network software. Once the printer's free,
+  press a key on the reporter's BBC to try again, or P again on the Editor.
+- Watch the **Traffic** view: the Editor's LOADs as it checks the desks,
+  then the paper going to station 235 on port &D1, a packet at a time, each
+  acknowledged.
+- **LIST the programs**: they're plain BBC BASIC II, on the file server as
+  REPORT and EDITOR, using the network filing system's own calls.
 
 ## The Distributed Mandelbrot
 

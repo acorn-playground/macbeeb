@@ -9,7 +9,16 @@ import BeebROMs
 
 final class PrinterCapture: @unchecked Sendable {
     var bytes: [UInt8] = []
+    /// When each byte was strobed (the machine's 2MHz cycles), if kept.
+    var cycles: [UInt64] = []
     var text: String { String(decoding: bytes, as: UTF8.self) }
+
+    /// The longest the printer waited between bytes, from byte `start` on,
+    /// in seconds.
+    func longestGap(after start: Int) -> Double {
+        guard cycles.count > start + 1 else { return 0 }
+        return zip(cycles[start...], cycles[(start + 1)...]).map { Double($1 - $0) / 2_000_000 }.max() ?? 0
+    }
 }
 
 struct PrinterTests {
@@ -42,7 +51,10 @@ extension EconetRig {
     /// its printer port.
     func startPrinterServer(_ index: Int) throws -> PrinterCapture {
         let capture = PrinterCapture()
-        machines[index].printer = ParallelPrinter { byte, _ in capture.bytes.append(byte) }
+        machines[index].printer = ParallelPrinter { byte, cycle in
+            capture.bytes.append(byte)
+            capture.cycles.append(cycle)
+        }
         machines[index].insertDisc(try Disc.fromImage(PrinterServer.disc(), format: .ssd), drive: 0)
         run(seconds: 0.5)
         machines[index].shiftBreak()

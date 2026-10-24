@@ -134,6 +134,10 @@ enum NetworkSelfTest {
             runHardware(path)
             return
         }
+        if UserDefaults.standard.string(forKey: "MacBeebNetworkSelfTestTemplate") == NetworkTemplate.econetTimes.rawValue {
+            runEconetTimes(path)
+            return
+        }
         if let name = UserDefaults.standard.string(forKey: "MacBeebNetworkSelfTestTemplate"),
            let template = NetworkTemplate(rawValue: name), template == .distributedMandelbrot || template == .mandelbrotInColour {
             runMandelbrot(path, template: template)

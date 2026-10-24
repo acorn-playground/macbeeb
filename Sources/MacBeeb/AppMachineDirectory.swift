@@ -236,7 +236,7 @@ final class AppMachineDirectory: MachineDirectory, @unchecked Sendable {
     private func open(_ name: String, _ arguments: JSONValue) -> ToolResult {
         let url: URL
         if name == "network_create" {
-            let templates: [String: NetworkTemplate] = ["econet_demo": .econetDemo, "distributed_mandelbrot": .distributedMandelbrot,
+            let templates: [String: NetworkTemplate] = ["econet_demo": .econetDemo, "econet_times": .econetTimes, "distributed_mandelbrot": .distributedMandelbrot,
                                                         "mandelbrot_in_colour": .mandelbrotInColour,
                                                         "two_bbcs": .twoBBCs,
                                                         "school_classroom": .schoolClassroom,
