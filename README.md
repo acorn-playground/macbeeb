@@ -150,6 +150,16 @@ field, the field so far up to the beam (frame-exact at a breakpoint), or
 screen memory as it is now; `peek` can write up to 64K to a file instead
 of returning it.
 
+BBC BASIC programs can be debugged as BASIC: `basic_set_breakpoint` (a
+line, or one statement in it, with a condition in BASIC such as `I%>10`, a
+hit count, or a log message), `basic_list_breakpoints`,
+`basic_delete_breakpoint`, `basic_stop_on_errors` (stop where an error
+happens, with the calls and variables as they were), `basic_step` (into,
+over or out of PROCs, FNs and GOSUBs), `basic_where` (the line, the error,
+the PROC/FN calls and their LOCALs), `basic_list`, `basic_variables`,
+`basic_evaluate` and `basic_set_variable`. They work with BASIC 2 and 4,
+found by the code in the ROM, so whichever BASIC is in which socket.
+
 Agents can set up what they need and rely on it. Breakpoints and symbols
 survive `restore_snapshot`, `load_state` and `power_cycle`
 (`keep_debugger: false` to start afresh). Tools that run the machine carry on

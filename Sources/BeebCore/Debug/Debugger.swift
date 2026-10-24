@@ -71,6 +71,12 @@ public enum StopReason: Equatable, Sendable, CustomStringConvertible {
     case requested
     /// Went back as far as the rewind history goes.
     case historyStart
+    /// A BASIC program reached a line with a breakpoint.
+    case basicBreakpoint(id: Int, cpu: DebugCPU, line: Int)
+    /// A BASIC step finished.
+    case basicStepped(DebugCPU)
+    /// A BASIC program hit an error (`BasicDebugger.error` has it).
+    case basicError(cpu: DebugCPU, number: Int)
 
     public var description: String {
         switch self {
@@ -83,6 +89,11 @@ public enum StopReason: Equatable, Sendable, CustomStringConvertible {
         case .interrupt(let cpu): return "interrupt on the \(cpu.rawValue)"
         case .requested: return "stopped"
         case .historyStart: return "reached the start of the rewind history"
+        case .basicBreakpoint(let id, let cpu, let line):
+            return "BASIC breakpoint \(id) (line \(line))" + (cpu == .parasite ? " on the parasite" : "")
+        case .basicStepped(let cpu): return "BASIC step finished" + (cpu == .parasite ? " on the parasite" : "")
+        case .basicError(let cpu, let number):
+            return "BASIC error \(number)" + (cpu == .parasite ? " on the parasite" : "")
         }
     }
 
@@ -213,6 +224,10 @@ public final class Debugger {
     /// Per CPU, per address: the breakpoint kinds set there.
     var hostFlags = [UInt8](repeating: 0, count: 0x10000)
     var parasiteFlags = [UInt8](repeating: 0, count: 0x10000)
+    /// The flag for BASIC's hooks (with the breakpoint kinds' bits).
+    static let basicHook: UInt8 = 8
+    /// Debugging BASIC programs.
+    public private(set) lazy var basic = BasicDebugger(debugger: self)
 
     public private(set) var stopReason: StopReason?
     /// Counts stops, so two in a row for the same reason can be told apart.
@@ -317,7 +332,7 @@ public final class Debugger {
         updateFlags()
     }
 
-    private func updateFlags() {
+    func updateFlags() {
         hostFlags = [UInt8](repeating: 0, count: 0x10000)
         parasiteFlags = [UInt8](repeating: 0, count: 0x10000)
         for b in breakpoints where b.enabled {
@@ -332,6 +347,7 @@ public final class Debugger {
                 address &+= 1
             }
         }
+        basic.setHooks(host: &hostFlags, parasite: &parasiteFlags)
         updateHooks()
     }
 
@@ -347,6 +363,7 @@ public final class Debugger {
 
     func updateHooks() {
         let any = breakpoints.contains { $0.enabled } || command != nil || tracing || forceHooks || profilingActive
+            || basic.isActive
         machine.debugHooks = any
         machine.debugVideoHooks = command == .nextFrame || command == .nextScanline || profilingActive
         machine.secondProcessor?.debugger = any ? self : nil
@@ -366,6 +383,7 @@ public final class Debugger {
             parasiteSymbols = other.parasiteSymbols
         }
         log = other.log
+        basic.adopt(other.basic)
         if other.tracing {
             setTracing(capacity: other.hostTrace.capacity)
         }
@@ -378,6 +396,7 @@ public final class Debugger {
     public func resume() {
         stopReason = nil
         machine.stopRequested = false
+        basic.resumed()
     }
 
     /// Stops the machine at the end of the current cycle.
@@ -395,7 +414,7 @@ public final class Debugger {
     }
 
     /// Whether a command from `begin` is still running.
-    public var isRunningCommand: Bool { command != nil }
+    public var isRunningCommand: Bool { command != nil || basic.isStepping }
 
     /// Runs `command` on `cpu`, using `advance` to run the machine (so
     /// recording and the display keep up), for at most `maxCycles`. Returns
@@ -413,6 +432,10 @@ public final class Debugger {
             }
             return stopReason
         }
+        return runUntilStopped(maxCycles: maxCycles, advance: advance)
+    }
+
+    private func runUntilStopped(maxCycles: Int, advance: (Int) -> Void) -> StopReason? {
         var remaining = maxCycles
         while stopReason == nil && remaining > 0 {
             let before = machine.cycles
@@ -421,6 +444,23 @@ public final class Debugger {
             remaining -= max(ran, 1)
         }
         return stopReason
+    }
+
+    /// Steps a BASIC program (from where it stopped), as `run`.
+    @discardableResult
+    public func run(basic step: BasicStep, maxCycles: Int, advance: (Int) -> Void) -> StopReason? {
+        let origin = basic.origin
+        resume()
+        basic.arm(step, from: origin)
+        defer { basic.disarm() }
+        return runUntilStopped(maxCycles: maxCycles, advance: advance)
+    }
+
+    /// Starts a BASIC step and returns at once, as `begin`.
+    public func begin(basic step: BasicStep) {
+        let origin = basic.origin
+        resume()
+        basic.arm(step, from: origin)
     }
 
     private func arm(_ command: RunCommand, cpu: DebugCPU) {
@@ -462,6 +502,15 @@ public final class Debugger {
             command = nil
             updateHooks()
         }
+        if basic.isStepping {
+            basic.stopped()
+            updateFlags()
+        }
+    }
+
+    func appendLog(_ text: String, cpu: DebugCPU) {
+        log.append(DebugLogEntry(cycle: machine.cycles, cpu: cpu, text: text))
+        if log.count > Self.logLimit { log.removeFirst(log.count - Self.logLimit) }
     }
 
     // MARK: Tracing
@@ -588,6 +637,9 @@ public final class Debugger {
                 break
             }
         }
+        if flags & Self.basicHook != 0 {
+            basic.executing(cpu, address)
+        }
         breakpointCheck(cpu, address, .execute, flags: flags)
     }
 
@@ -606,8 +658,7 @@ public final class Debugger {
             let b = breakpoints[index]
             if let target = b.hitTarget, b.hitCount < target { continue }
             if let message = b.logMessage {
-                log.append(DebugLogEntry(cycle: machine.cycles, cpu: cpu, text: interpolate(message, cpu: cpu)))
-                if log.count > Self.logLimit { log.removeFirst(log.count - Self.logLimit) }
+                appendLog(interpolate(message, cpu: cpu), cpu: cpu)
                 continue
             }
             if kind != .execute {

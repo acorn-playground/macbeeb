@@ -100,6 +100,14 @@ extension AgentTools {
     static func debugSummary(_ session: MachineSession, cpu: DebugCPU, reason: StopReason?) -> String {
         let m = session.machine
         var text = reason.map { "stopped: \($0)" } ?? "still running (time limit reached)"
+        switch reason {
+        case .basicBreakpoint, .basicStepped, .basicError:
+            // The interpreter's registers and code don't help.
+            let time = String(format: "%.6f", Double(m.cycles) / 2_000_000)
+            return text + (basicWhere(m).map { "\n" + $0 } ?? "") + "\n[t=\(time)s, cycle \(m.cycles)]"
+        default:
+            break
+        }
         let stoppedCPU: DebugCPU = switch reason {
         case .breakpoint(_, let c, _, _), .stepped(let c), .interrupt(let c): c
         default: cpu

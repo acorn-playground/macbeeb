@@ -181,7 +181,7 @@ public final class AgentTools: Sendable {
         return (notes.isEmpty ? "" : notes + "\n") + "[t=\(time)s] screen:\n" + lines.joined(separator: "\n")
     }
 
-    static let tools: [Tool] = coreTools + debugTools + hardwareTools + nulaTools + econetTools
+    static let tools: [Tool] = coreTools + debugTools + basicTools + hardwareTools + nulaTools + econetTools
 
     static let coreTools: [Tool] = [
         Tool(definition: ToolDefinition(

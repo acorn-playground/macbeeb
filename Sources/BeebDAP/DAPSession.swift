@@ -391,6 +391,16 @@ public actor DAPSession {
         case .historyStart:
             reason = "step"
             body["description"] = "Reached the start of the rewind history"
+        case .basicBreakpoint(let id, let cpu, _):
+            thread = cpu == .parasite ? Self.parasiteThread : Self.hostThread
+            reason = "breakpoint"
+            body["hitBreakpointIds"] = [.number(Double(id))]
+        case .basicStepped(let cpu):
+            thread = cpu == .parasite ? Self.parasiteThread : Self.hostThread
+            reason = "step"
+        case .basicError(let cpu, _):
+            thread = cpu == .parasite ? Self.parasiteThread : Self.hostThread
+            reason = "exception"
         }
         body["reason"] = .string(reason)
         body["threadId"] = .number(Double(thread))
