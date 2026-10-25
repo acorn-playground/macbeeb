@@ -474,11 +474,11 @@ struct NetworkCanvas: View {
         rememberView()
     }
 
-    /// Zooms and centres to show every node.
+    /// Zooms and centres to show every node, and the room's other machines.
     func fit(animated: Bool = true) {
-        let nodes = session.project.nodes
-        guard !nodes.isEmpty else { return }
-        let xs = nodes.map(\.position.x), ys = nodes.map(\.position.y)
+        let points = session.project.nodes.map { CGPoint(x: $0.position.x, y: $0.position.y) } + remoteLayout.map(\.point)
+        guard !points.isEmpty else { return }
+        let xs = points.map(\.x), ys = points.map(\.y)
         let width = (xs.max()! - xs.min()!) + MachineCard.width + 80
         let height = (ys.max()! - ys.min()!) + MachineCard.height + 80
         // Clear of the palette, on the left.
