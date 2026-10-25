@@ -3,7 +3,7 @@ import AppKit
 /// The standard About panel, with links to the project and its author.
 @MainActor
 enum AboutPanel {
-    static let repository = URL(string: "https://github.com/JamesRandall/macbeeb")!
+    static let repository = URL(string: "https://github.com/acorn-playground/macbeeb")!
     static let website = URL(string: "https://jamesdrandall.com")!
 
     static func show() {

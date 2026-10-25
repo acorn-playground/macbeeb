@@ -48,7 +48,7 @@ NOTES=$(awk -v v="$VERSION" '
     on' WHATSNEW.md | sed -e '/./,$!d')
 [ -n "$NOTES" ] || { echo "release: WHATSNEW.md has no \"## $VERSION\" section" >&2; exit 1; }
 
-REPO=JamesRandall/macbeeb
+REPO=acorn-playground/macbeeb
 SPARKLE_BIN=.build/artifacts/sparkle/Sparkle/bin
 [ -x "$SPARKLE_BIN/generate_keys" ] || swift package resolve
 SPARKLE_PUBLIC_KEY=$("$SPARKLE_BIN/generate_keys" --account macbeeb -p) || {

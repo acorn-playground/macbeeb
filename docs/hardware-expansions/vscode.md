@@ -88,7 +88,7 @@ What you can put in a launch configuration:
 
 ## Examples
 
-MacBeeb's [Examples](https://github.com/JamesRandall/macbeeb/tree/main/Examples) folder has small programs set up for VS Code, each with its launch configurations: `hello-beebasm`, `hello-baron`, `hello-ca65` and `hello-basic`. Open one of those folders in VS Code, set a breakpoint and press F5.
+MacBeeb's [Examples](https://github.com/acorn-playground/macbeeb/tree/main/Examples) folder has small programs set up for VS Code, each with its launch configurations: `hello-beebasm`, `hello-baron`, `hello-ca65` and `hello-basic`. Open one of those folders in VS Code, set a breakpoint and press F5.
 
 ## MacBeeb's own debugger
 

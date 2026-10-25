@@ -79,7 +79,7 @@ struct NetworkingSettingsView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Link("cloudflare-econet on GitHub", destination: URL(string: "https://github.com/JamesRandall/cloudflare-econet")!)
+                Link("cloudflare-econet on GitHub", destination: URL(string: "https://github.com/acorn-playground/cloudflare-econet")!)
                     .font(.callout)
             }
         }

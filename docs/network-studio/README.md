@@ -336,7 +336,7 @@ other machines wait, as they would for a slow station.
 
 **Your own service**: rooms live on a service on Cloudflare: by default
 econet.acornplayground.org. Anyone can run their own
-([cloudflare-econet](https://github.com/JamesRandall/cloudflare-econet), open source); choose it in **Settings ▸ Networking**. An invitation link
+([cloudflare-econet](https://github.com/acorn-playground/cloudflare-econet), open source); choose it in **Settings ▸ Networking**. An invitation link
 from another service says so before you join, and doesn't change your
 setting. A code is looked up on your service, so a code from someone on
 another service needs that service set.

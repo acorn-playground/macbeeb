@@ -11,7 +11,7 @@ headers.
 ## Download
 
 Get `MacBeeb-VERSION.dmg` from the
-[latest release](https://github.com/JamesRandall/macbeeb/releases/latest)
+[latest release](https://github.com/acorn-playground/macbeeb/releases/latest)
 and drag MacBeeb to Applications. It needs macOS 26, runs natively on Apple
 silicon and Intel, is notarised, and updates itself (MacBeeb > Check for
 Updates…). The ROMs it needs, and the Z80's and Master 512's system discs,
@@ -84,7 +84,7 @@ make bench
 ID, notarises and staples it and a DMG, and makes the Sparkle update zip and
 `appcast.xml` (keeping earlier releases listed). `--publish` then tags the
 commit and creates the GitHub release with all three. The app checks
-`https://github.com/JamesRandall/macbeeb/releases/latest/download/appcast.xml`,
+`https://github.com/acorn-playground/macbeeb/releases/latest/download/appcast.xml`,
 so updates reach users only once the repo's releases are public.
 
 Before a release, add a `## 1.0` section to `WHATSNEW.md` (newest first: an
