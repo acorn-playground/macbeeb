@@ -261,17 +261,24 @@ struct DisassemblyRow: View {
     private var row: some View {
         HStack(spacing: 8) {
             Button(action: toggle) {
-                Circle()
-                    .fill(line.breakpoints.isEmpty ? Color.clear : Color.red)
-                    .overlay(Circle().stroke(Color.secondary.opacity(line.breakpoints.isEmpty ? 0.25 : 0), lineWidth: 1))
-                    .frame(width: 10, height: 10)
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(line.breakpoints.isEmpty ? Color.clear : Color.red)
+                        .overlay(Circle().stroke(Color.secondary.opacity(line.breakpoints.isEmpty ? 0.25 : 0), lineWidth: 1))
+                        .frame(width: 10, height: 10)
+                    Image(systemName: "arrowtriangle.right.fill")
+                        .font(.caption2)
+                        .foregroundStyle(line.isPC ? (stopped ? Color.accentColor : Color.secondary) : .clear)
+                    Text(hex(line.address, 4)).foregroundStyle(.secondary)
+                }
+                // The whole gutter, not just the circle's outline (a clear
+                // fill isn't clickable), and no gap between rows.
+                .padding(.leading, 8)
+                .padding(.vertical, 1)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help(line.breakpoints.isEmpty ? "Set a breakpoint" : "Remove the breakpoint")
-            Image(systemName: "arrowtriangle.right.fill")
-                .font(.caption2)
-                .foregroundStyle(line.isPC ? (stopped ? Color.accentColor : Color.secondary) : .clear)
-            Text(hex(line.address, 4)).foregroundStyle(.secondary)
             Text(line.bytes.map { hex($0) }.joined(separator: " "))
                 .foregroundStyle(.secondary)
                 .frame(width: 80, alignment: .leading)
@@ -282,8 +289,7 @@ struct DisassemblyRow: View {
             }
         }
         .font(codeFont)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 1)
+        .padding(.trailing, 8)
         .background(alignment: .leading) {
             // Profile heat: a bar in proportion to the busiest instruction.
             if let heat = line.heat {

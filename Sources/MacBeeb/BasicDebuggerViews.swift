@@ -125,29 +125,35 @@ struct BasicLineRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Button(action: toggle) {
-                ZStack {
-                    Circle()
-                        .fill(hasBreakpoint ? (enabled ? Color.red : Color.red.opacity(0.3)) : Color.clear)
-                        .overlay(Circle().stroke(Color.secondary.opacity(hasBreakpoint ? 0 : 0.25), lineWidth: 1))
-                    if isConditional {
-                        Circle().fill(Color.white).frame(width: 4, height: 4)
+                HStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(hasBreakpoint ? (enabled ? Color.red : Color.red.opacity(0.3)) : Color.clear)
+                            .overlay(Circle().stroke(Color.secondary.opacity(hasBreakpoint ? 0 : 0.25), lineWidth: 1))
+                        if isConditional {
+                            Circle().fill(Color.white).frame(width: 4, height: 4)
+                        }
                     }
+                    .frame(width: 10, height: 10)
+                    Image(systemName: "arrowtriangle.right.fill")
+                        .font(.caption2)
+                        .foregroundStyle(isCurrent ? (isError ? Color.red : stopped ? Color.accentColor : Color.secondary) : .clear)
+                    Text(String(repeating: " ", count: max(0, width - String(line.number).count)) + String(line.number))
+                        .foregroundStyle(.secondary)
                 }
-                .frame(width: 10, height: 10)
+                // The whole gutter, not just the circle's outline (a clear
+                // fill isn't clickable), and no gap between rows.
+                .padding(.leading, 8)
+                .padding(.vertical, 1)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help(hasBreakpoint ? "Remove the breakpoint (Control-click to edit it)" : "Stop at this line (Control-click for a condition)")
-            Image(systemName: "arrowtriangle.right.fill")
-                .font(.caption2)
-                .foregroundStyle(isCurrent ? (isError ? Color.red : stopped ? Color.accentColor : Color.secondary) : .clear)
-            Text(String(repeating: " ", count: max(0, width - String(line.number).count)) + String(line.number))
-                .foregroundStyle(.secondary)
             text
             Spacer(minLength: 0)
         }
         .font(codeFont)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 1)
+        .padding(.trailing, 8)
         .background(isCurrent ? (isError ? Color.red : Color.accentColor).opacity(stopped ? 0.18 : 0.08) : .clear)
         .contentShape(Rectangle())
         .contextMenu {
