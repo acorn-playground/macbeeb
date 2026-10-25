@@ -1,0 +1,41 @@
+CONST = 42
+SECTION Features, org=&1900, filename="FEAT"
+  1900  .outer
+{
+  1900  .inner
+  1900  A9 2A                       LDA #CONST
+  1902  60                          RTS
+}
+  1903  .loops
+  1903  EA                          NOP
+  1904  E8                          INX
+  1905  E8                          INX
+  1906  EA                          NOP
+  1907  E8                          INX
+  1908  E8                          INX
+  1909  EA                          NOP
+  190A  E8                          INX
+  190B  E8                          INX
+  190C  .after
+  190C  A9 01                       LDA #1
+  190E  85 70                       STA &70
+  1910  E8                          INX
+  1911  E8                          INX
+  1912  .mac
+  1912                              TWICE
+  1912  C8                          INY
+  1913  C8                          INY
+  1914                              ADDN 3
+  1914  18                          CLC
+  1915  69 03                       ADC #n
+  1917                              TWICE
+  1917  C8                          INY
+  1918  C8                          INY
+  1919  60                          RTS
+  191A                              INCLUDE "features-inc.6502"
+  191A  .included
+  191A  A9 02                       LDA #2
+  191C  60                          RTS
+  191D  .end
+ENDSECTION
+

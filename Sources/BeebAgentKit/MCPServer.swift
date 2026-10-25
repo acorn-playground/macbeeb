@@ -140,7 +140,7 @@ Breakpoints and symbols survive restore_snapshot, load_state and power_cycle. \
 In the app, the machine runs in real time between tool calls; set_real_time on: false holds it still, so replays are exact. \
 Each tool takes cpu: parasite for the second processor. \
 Writing BBC code: assemble builds a BeebAsm source (SAVE what it makes), puts the disc in drive 0 and *RUNs it, with \
-symbols and source lines for breakpoints like "game.asm:42". \
+symbols and source lines for breakpoints like "game.asm:42"; assemble_baron does the same for Baron sources (.6502, sections with a filename). \
 History: rewind goes back up to about 60 seconds; step kind back and reverse_continue debug backwards ("who wrote this?").
 
 The machine starts at the BASIC prompt. In BASIC, lines with numbers are stored (then RUN); lines without run immediately. \

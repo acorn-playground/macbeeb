@@ -499,6 +499,48 @@ extension AgentTools {
         },
 
         Tool(definition: ToolDefinition(
+            name: "assemble_baron",
+            description: "Assemble Baron sources (.6502; Baron, the successor to BeebAsm, comes with MacBeeb) to a disc, put it in drive 0, load their symbols and source lines into the debugger (so breakpoints can be \"game.6502:42\"), and *RUN the first file saved (or file), or boot the disc if it has a boot option (--opt). Each source assembles on its own and every section with a filename is saved. Returns Baron's messages and errors, then the screen.",
+            inputSchema: schema(["sources": ["type": "array", "items": ["type": "string"], "description": "The Baron source files, as you'd give them to baron (a single string is fine too)"],
+                                 "arguments": ["type": "array", "items": ["type": "string"], "description": "Extra switches, e.g. [\"-D\", \"DEBUG=1\", \"--opt\", \"3\"] (output switches are MacBeeb's)"],
+                                 "run": prop("boolean", "Run it (default true)"),
+                                 "file": prop("string", "Which saved file to *RUN (default the first that isn't !BOOT, or boot the disc if it has a boot option)"),
+                                 "max_seconds": prop("number", "Longest to run before returning (default 10)"),
+                                 "baron": prop("string", "Path to baron (default: MacBeeb's, then the PATH)")],
+                                required: ["sources"])
+        )) { context, args in
+            let sources = args["sources"]?.arrayValue?.compactMap(\.stringValue) ?? args["sources"]?.stringValue.map { [$0] } ?? []
+            guard !sources.isEmpty else { throw ToolFailure("sources is required") }
+            let build: BaronBuild
+            do {
+                build = try Baron.assemble(sources: sources.map { ($0 as NSString).expandingTildeInPath },
+                                           arguments: args["arguments"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+                                           baron: args["baron"]?.stringValue)
+            } catch {
+                throw ToolFailure("\(error)")
+            }
+            let run = args["run"]?.boolValue ?? true
+            let file = args["file"]?.stringValue ?? (build.bootOption != 0 ? nil : Baron.runnable(build))
+            let maxSeconds = args["max_seconds"]?.doubleValue ?? 10
+            let report = "assembled: saved \(build.savedFiles.joined(separator: ", ")); \(build.symbols.symbolCount) symbols, \(build.symbols.lineCount) source lines"
+                + (build.messages.isEmpty ? "" : "\n" + build.messages)
+            return .text(try context.perform { session in
+                let m = session.machine
+                m.insertDisc(try Disc.fromSSD(build.disc))
+                m.debugger.addSymbols(build.symbols, cpu: m.secondProcessor != nil ? .parasite : .host)
+                guard run else { return report }
+                if let file {
+                    m.paste("*RUN \(file)\n")
+                } else {
+                    m.shiftBreak()
+                }
+                session.advance(seconds: 0.5)
+                _ = runUntilIdle(session, maxSeconds: maxSeconds)
+                return summary(session, extra: report)
+            })
+        },
+
+        Tool(definition: ToolDefinition(
             name: "load_symbols",
             description: "Load symbols for the debugger: ld65 debug info (ld65 --dbgfile, which also maps code to source lines, so breakpoints can be \"hello.s:12\"), or a label file (ld65 -Ln, VICE, \"name = $1234\" lists). Then addresses and expressions can use the names, and disassembly shows them. The OS entry points (OSWRCH...) and hardware registers are always known.",
             inputSchema: schema(["path": prop("string", "The .dbg or label file"),

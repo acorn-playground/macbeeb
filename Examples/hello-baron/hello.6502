@@ -1,0 +1,29 @@
+\ Prints a message, for trying the debugger: assembles to a disc with
+\ HELLO at &2000.
+
+OSWRCH = &FFEE
+OSNEWL = &FFE7
+
+SECTION Hello, org=&2000, filename="HELLO"
+.start
+    LDX #0
+.loop
+    LDA message,X
+    BEQ done
+    JSR print
+    INX
+    BNE loop
+.done
+    JSR OSNEWL
+    RTS
+
+\ Prints A, counting characters in count.
+.print
+    INC count
+    JMP OSWRCH
+
+.message
+    EQUS "HELLO WORLD", 0
+.count
+    EQUB 0
+ENDSECTION

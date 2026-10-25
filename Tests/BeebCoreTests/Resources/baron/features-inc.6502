@@ -1,0 +1,4 @@
+\ Included by features.6502.
+.included
+    LDA #2    ; INY in a comment isn't code
+    RTS

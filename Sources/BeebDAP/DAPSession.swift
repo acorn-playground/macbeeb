@@ -240,7 +240,8 @@ public actor DAPSession {
     // MARK: Launching
 
     /// launch: model, secondProcessor, disc, program (+ loadAddress,
-    /// execAddress), symbols, stopOnEntry, cpu. attach: symbols, cpu.
+    /// execAddress), source (BeebAsm), baron (+ baronArgs), basic, file,
+    /// symbols, stopOnEntry, cpu. attach: symbols, cpu.
     private func launchRequest(_ args: JSONValue, launching: Bool) async throws {
         launch = args
         // A launch is a new program: forget the last one's symbols.
@@ -271,7 +272,7 @@ public actor DAPSession {
         } else {
             // BASIC's CALL (or *RUN) runs code in the second processor, if
             // there is one.
-            codeCPU = hasSecondProcessor && (args["program"] != nil || args["source"] != nil) ? .parasite : .host
+            codeCPU = hasSecondProcessor && (args["program"] != nil || args["source"] != nil || args["baron"] != nil) ? .parasite : .host
         }
 
         // A BeebAsm source: assemble it now, run it on configurationDone.
@@ -292,8 +293,37 @@ public actor DAPSession {
                 s.machine.debugger.addSymbols(symbols, cpu: cpu)
             }
             let name = args["file"]?.stringValue ?? build.savedFiles[0]
-            beebAsmRun = name
-            beebAsmEntry = (try? DFSDisc(side: disc))?.file(named: name).map { UInt16(truncatingIfNeeded: $0.executionAddress) }
+            assembledRun = .file(name)
+            assembledEntry = (try? DFSDisc(side: disc))?.file(named: name).map { UInt16(truncatingIfNeeded: $0.executionAddress) }
+        }
+
+        // Baron sources: assemble them now, run (or boot) on
+        // configurationDone.
+        if launching, let baron = args["baron"] {
+            let sources = baron.arrayValue?.compactMap(\.stringValue) ?? baron.stringValue.map { [$0] } ?? []
+            let build: BaronBuild
+            do {
+                build = try Baron.assemble(sources: sources, arguments: args["baronArgs"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+                                           baron: args["baronPath"]?.stringValue)
+            } catch {
+                throw DAPError("\(error)")
+            }
+            if !build.messages.isEmpty { output(build.messages + "\n") }
+            output("Assembled \(sources.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")): \(build.savedFiles.joined(separator: ", ")); \(build.symbols.symbolCount) symbols, \(build.symbols.lineCount) source lines\n")
+            let cpu = codeCPU
+            let disc = build.disc
+            let symbols = build.symbols
+            try await machine { s in
+                s.machine.insertDisc(try Disc.fromSSD(disc))
+                s.machine.debugger.addSymbols(symbols, cpu: cpu)
+            }
+            // A disc with a boot option boots, unless a file is named.
+            if let name = args["file"]?.stringValue ?? (build.bootOption != 0 ? nil : Baron.runnable(build)) {
+                assembledRun = .file(name)
+                assembledEntry = (try? DFSDisc(side: disc))?.file(named: name).map { UInt16(truncatingIfNeeded: $0.executionAddress) }
+            } else {
+                assembledRun = .boot
+            }
         }
 
         var symbolsPath = args["symbols"]?.stringValue
@@ -399,8 +429,8 @@ public actor DAPSession {
                 }
                 m.paste("CALL &\(String(exec, radix: 16, uppercase: true))\n")
             }
-        } else if let name = beebAsmRun {
-            let entry = stopOnEntry ? beebAsmEntry : nil
+        } else if case .file(let name) = assembledRun {
+            let entry = stopOnEntry ? assembledEntry : nil
             entryBreakpoint = entry
             let cpu = codeCPU
             try await machine { s in
@@ -409,7 +439,7 @@ public actor DAPSession {
                 }
                 s.machine.paste("*RUN \(name)\n")
             }
-        } else if args["disc"] != nil {
+        } else if args["disc"] != nil || assembledRun == .boot {
             try await machine { $0.machine.shiftBreak() }
         } else if stopOnEntry {
             try await machine { $0.machine.debugger.requestStop() }
@@ -417,9 +447,15 @@ public actor DAPSession {
     }
 
     private var entryBreakpoint: UInt16?
-    /// The BeebAsm build's file to *RUN, and where it starts.
-    private var beebAsmRun: String?
-    private var beebAsmEntry: UInt16?
+    /// How to run what was assembled (BeebAsm or Baron), and where its
+    /// file starts.
+    private enum AssembledRun: Equatable {
+        case file(String)
+        /// Shift-Break: the disc has a boot option.
+        case boot
+    }
+    private var assembledRun: AssembledRun?
+    private var assembledEntry: UInt16?
 
     static func model(_ name: String) -> BBCMicro.Model? {
         switch name.lowercased().replacingOccurrences(of: " ", with: "") {

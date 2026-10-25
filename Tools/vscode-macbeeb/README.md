@@ -32,6 +32,26 @@ The source is assembled (it must SAVE what it builds) to a disc in drive 0,
 and the first file it SAVEs is *RUN (`file` picks another); breakpoints go
 in the source.
 
+With Baron, there's nothing to build either. Press F5 in a Baron `.6502`
+file (a file that has SECTIONs and no SAVE), or use:
+
+    {
+      "type": "macbeeb",
+      "request": "launch",
+      "name": "Assemble and run (Baron)",
+      "baron": ["${workspaceFolder}/boot.6502", "${workspaceFolder}/game.6502"],
+      "baronArgs": ["--opt", "3", "-D", "DEBUG=TRUE"]
+    }
+
+Every section with a filename goes on a disc in drive 0; the first file
+saved is *RUN (`file` picks another), or the disc boots if it has a boot
+option. F5 without a launch configuration uses the Baron extension's
+settings if you have it: `baron.sourceFiles`, `baron.buildArgs` and
+`baron.defines`. That extension binds F5 to its own Run in Emulator in
+`.6502` files, so start debugging from the Run menu (or remove that
+binding). Its Run in Emulator can use MacBeeb too: set `baron.emulatorPath`
+to `open` and `baron.emulatorArgs` to `["-a", "MacBeeb", "${image}"]`.
+
 With ca65/ld65, build and ask for debug info (see Examples/hello-ca65):
 
     ca65 -g hello.s -o hello.o

@@ -1,0 +1,46 @@
+{
+  "format": 2,
+  "assemblies": [
+    {
+      "sources": ["features.6502", "features-inc.6502"],
+      "sections": [
+        {
+          "parent": null, "size": 0,
+          "assignments": {
+            "CONST": {"value": 42, "source": 0, "line": 3}
+          }
+        },
+        {
+          "name": "Features", "parent": 0, "size": 29,
+          "attributes": {
+            "org": 6400,
+            "filename": "FEAT"
+          },
+          "labels": {
+            "after": {"value": 6412, "source": 0, "line": 29},
+            "end": {"value": 6429, "source": 0, "line": 39},
+            "included": {"value": 6426, "source": 1, "line": 2},
+            "loops": {"value": 6403, "source": 0, "line": 22},
+            "mac": {"value": 6418, "source": 0, "line": 32},
+            "outer": {"value": 6400, "source": 0, "line": 15},
+            "outer.inner": {"value": 6400, "source": 0, "line": 17}
+          },
+          "loop_vars": {
+            "@0:289:0.@0:314:0.m": {"value": 0, "source": 0, "line": 25},
+            "@0:289:0.@0:314:1.m": {"value": 1, "source": 0, "line": 25},
+            "@0:289:0.n": {"value": 0, "source": 0, "line": 23},
+            "@0:289:1.@0:314:0.m": {"value": 0, "source": 0, "line": 25},
+            "@0:289:1.@0:314:1.m": {"value": 1, "source": 0, "line": 25},
+            "@0:289:1.n": {"value": 1, "source": 0, "line": 23},
+            "@0:289:2.@0:314:0.m": {"value": 0, "source": 0, "line": 25},
+            "@0:289:2.@0:314:1.m": {"value": 1, "source": 0, "line": 25},
+            "@0:289:2.n": {"value": 2, "source": 0, "line": 23}
+          },
+          "params": {
+            "@0:459.n": {"value": 3, "source": 0, "line": 34}
+          }
+        }
+      ]
+    }
+  ]
+}

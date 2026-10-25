@@ -59,6 +59,7 @@ The drive noises are [MAME](https://github.com/mamedev/mame)'s recordings.
 | `Sources/BeebAgentKit`, `Sources/macbeeb-mcp` | Agent tools and the MCP server |
 | `Sources/BeebDAP`, `Tools/vscode-macbeeb` | The Debug Adapter Protocol server and the VS Code extension |
 | `ThirdParty/beebasm` | BeebAsm (submodule), built into the app |
+| `ThirdParty/baron` | Baron (submodule, with richc inside), built into the app |
 | `Sources/MacBeeb` | The Mac app |
 | `Sources/beeb` | Headless command-line BBC Micro |
 | `Sources/M6502GenKit`, `Sources/m6502-gen` | Generator for the 6502's per-cycle state machine |
@@ -180,7 +181,22 @@ assembled to a disc, which goes in drive 0, and the first file it SAVEs is
 `game.asm:42`. BeebAsm doesn't record which line made each byte, so MacBeeb
 lines its `-v` listing up with the source, following INCLUDEs, macros and
 FOR loops. `Examples/hello-beebasm` is a program to try. After cloning:
-`git submodule update --init`.
+`git submodule update --init --recursive`.
+
+## Assembling with Baron
+
+MacBeeb also comes with [Baron](https://github.com/waitingforvsync/baron)
+(MIT, built from the `ThirdParty/baron` submodule into the app), BeebAsm's
+successor, and assembles with it the same way: in VS Code (F5 in a Baron
+`.6502` file, or a launch configuration with `"baron"`, one source file or
+several, and `"baronArgs"` for switches such as `-D` and `--opt`) and for
+agents (`assemble_baron`). Every section with a filename goes on one disc in
+drive 0, with the symbols (labels, zero-page variables, constants) and
+source lines loaded, and the first file saved is *RUN, or the disc boots if
+it has a boot option. Baron lists each statement's own text against its
+address, so MacBeeb finds each in the source, into macros and included
+files and round FOR loops (as many times as Baron's symbols say each ran).
+`Examples/hello-baron` is a program to try.
 
 ## Source-level debugging (VS Code)
 

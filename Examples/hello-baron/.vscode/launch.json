@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "macbeeb",
+      "request": "launch",
+      "name": "Assemble and run",
+      "baron": "${workspaceFolder}/hello.6502",
+      "stopOnEntry": true
+    },
+    {
+      "type": "macbeeb",
+      "request": "launch",
+      "name": "Assemble and run on a Master",
+      "baron": "${workspaceFolder}/hello.6502",
+      "model": "master128"
+    }
+  ]
+}

@@ -69,6 +69,46 @@ struct DAPTests {
         #expect(buffer.isEmpty)
     }
 
+    static let baron = Baron.locate(ProcessInfo.processInfo.environment["MACBEEB_BARON"])
+    static let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent()
+
+    @Test(.enabled(if: baron != nil))
+    func debuggingBaronSources() async throws {
+        let path = Self.repository.appendingPathComponent("Examples/hello-baron/hello.6502").path
+        let client = DAPClient()
+        _ = try await client.request("initialize")
+        let launch = try await client.request("launch", ["baron": .string(path), "baronPath": .string(Self.baron!)])
+        #expect(launch["success"] == true, "\(launch)")
+        let set = try await client.request("setBreakpoints", ["source": ["path": .string(path)], "breakpoints": [["line": 22]]])
+        #expect(set["body"]?["breakpoints"]?.arrayValue?.first?["verified"] == true, "\(set)")
+        _ = try await client.request("configurationDone")
+        let stopped = try await client.event("stopped")
+        #expect(stopped["body"]?["reason"] == "breakpoint", "\(stopped)")
+        let trace = try await client.request("stackTrace", ["threadId": 1])
+        let frame = try #require(trace["body"]?["stackFrames"]?.arrayValue?.first)
+        #expect(frame["source"]?["path"]?.stringValue == path && frame["line"] == 22, "\(frame)")
+    }
+
+    /// Several sources to a disc that boots (--opt 3): Baron's starglobe.
+    @Test(.enabled(if: baron != nil && FileManager.default.fileExists(atPath: repository.appendingPathComponent("ThirdParty/baron/examples").path)))
+    func debuggingABaronDiscThatBoots() async throws {
+        let directory = Self.repository.appendingPathComponent("ThirdParty/baron/examples/starglobe").path
+        let demo = directory + "/demo.6502"
+        let client = DAPClient()
+        _ = try await client.request("initialize")
+        let launch = try await client.request("launch", ["baron": .array(["boot.6502", "loader.6502", "demo.6502"].map { .string(directory + "/" + $0) }),
+                                                         "baronArgs": ["--opt", "3", "--title", "STARGLOBE"], "baronPath": .string(Self.baron!)])
+        #expect(launch["success"] == true, "\(launch)")
+        // SEI, at the demo's entry.
+        _ = try await client.request("setBreakpoints", ["source": ["path": .string(demo)], "breakpoints": [["line": 332]]])
+        _ = try await client.request("configurationDone")
+        let stopped = try await client.event("stopped", timeout: 60)
+        #expect(stopped["body"]?["reason"] == "breakpoint", "\(stopped)")
+        let trace = try await client.request("stackTrace", ["threadId": 1])
+        #expect(trace["body"]?["stackFrames"]?.arrayValue?.first?["line"] == 332, "\(trace)")
+    }
+
     @Test func debuggingASourceProgram() async throws {
         let client = DAPClient()
         let initialize = try await client.request("initialize", ["adapterID": "macbeeb"])

@@ -1,3 +1,6 @@
 [submodule "ThirdParty/beebasm"]
 	path = ThirdParty/beebasm
 	url = https://github.com/stardot/beebasm.git
+[submodule "ThirdParty/baron"]
+	path = ThirdParty/baron
+	url = https://github.com/waitingforvsync/baron

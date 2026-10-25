@@ -1,0 +1,40 @@
+\ Exercises the listing aligner: scopes, loops, macros, includes, and
+\ several statements on a line.
+CONST = 42
+
+MACRO TWICE
+    INY
+    INY
+ENDMACRO
+
+MACRO ADDN n
+    CLC : ADC #n
+ENDMACRO
+
+SECTION Features, org=&1900, filename="FEAT"
+.outer
+{
+.inner
+    LDA #CONST
+    RTS
+}
+
+.loops
+FOR n = 0..2
+    NOP
+    FOR m = 0..1
+        INX
+    NEXT
+NEXT
+.after LDA #1:STA &70     ; two statements, label and code on one line
+    INX : INX
+
+.mac
+    TWICE
+    ADDN 3
+    TWICE
+    RTS
+
+INCLUDE "features-inc.6502"
+.end
+ENDSECTION

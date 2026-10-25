@@ -1,7 +1,7 @@
 {
   "name": "macbeeb-debug",
   "displayName": "MacBeeb: BBC Micro debugger",
-  "description": "Debug 6502 programs and BBC BASIC on MacBeeb's emulated BBC Micro: assemble BeebAsm sources and run them, source breakpoints (BeebAsm or ld65 debug info), breakpoints in BBC BASIC programs (.bas), stepping (and stepping back), registers, BASIC variables, memory, watchpoints.",
+  "description": "Debug 6502 programs and BBC BASIC on MacBeeb's emulated BBC Micro: assemble BeebAsm or Baron sources and run them, source breakpoints (BeebAsm, Baron or ld65 debug info), breakpoints in BBC BASIC programs (.bas), stepping (and stepping back), registers, BASIC variables, memory, watchpoints.",
   "version": "0.1.0",
   "publisher": "accidentalfish",
   "license": "GPL-3.0-only",
@@ -17,6 +17,7 @@
     "onDebugResolve:macbeeb",
     "onDebugDynamicConfigurations:macbeeb",
     "onLanguage:beebasm",
+    "onLanguage:baron",
     "onLanguage:bbcbasic"
   ],
   "contributes": {
@@ -86,6 +87,9 @@
       },
       {
         "language": "bbcbasic"
+      },
+      {
+        "language": "baron"
       }
     ],
     "debuggers": [
@@ -95,7 +99,8 @@
         "languages": [
           "ca65",
           "beebasm",
-          "bbcbasic"
+          "bbcbasic",
+          "baron"
         ],
         "configurationAttributes": {
           "launch": {
@@ -156,11 +161,32 @@
               },
               "file": {
                 "type": "string",
-                "description": "With source: which SAVEd file to *RUN (default the first)."
+                "description": "With source or baron: which saved file to *RUN (default the first; with baron, a disc with a boot option boots)."
               },
               "beebasm": {
                 "type": "string",
                 "description": "With source: the beebasm to use (default MacBeeb's own, then the PATH)."
+              },
+              "baron": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "description": "Baron source files (.6502), as you'd give them to baron: each assembles on its own and every section with a filename goes on one disc, which is put in drive 0 with the symbols and source lines loaded. The first file saved (not !BOOT) is *RUN, or the disc boots if it has a boot option (--opt in baronArgs)."
+              },
+              "baronArgs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "With baron: extra switches, e.g. [\"-D\", \"DEBUG=1\", \"--opt\", \"3\"]. MacBeeb chooses where the output goes, so -o, -p, -v and -log are ignored."
+              },
+              "baronPath": {
+                "type": "string",
+                "description": "With baron: the baron to use (default MacBeeb's own, then the PATH)."
               },
               "basic": {
                 "type": "string",
@@ -214,6 +240,17 @@
               "request": "launch",
               "name": "Assemble and run",
               "source": "^\"\\${workspaceFolder}/${1:main.asm}\""
+            }
+          },
+          {
+            "label": "MacBeeb: Assemble and run Baron sources",
+            "body": {
+              "type": "macbeeb",
+              "request": "launch",
+              "name": "Assemble and run (Baron)",
+              "baron": [
+                "^\"\\${workspaceFolder}/${1:main.6502}\""
+              ]
             }
           },
           {

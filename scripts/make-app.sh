@@ -43,6 +43,12 @@ rm -f .build/beebasm/beebasm
 make beebasm UNIVERSAL=$UNIVERSAL
 cp .build/beebasm/beebasm "$APP/Contents/MacOS/"
 cp ThirdParty/beebasm/COPYING.txt "$APP/Contents/Resources/BeebAsm-COPYING.txt"
+# Baron, the other assembler (MIT; the ThirdParty/baron submodule).
+rm -f .build/baron/baron
+make baron UNIVERSAL=$UNIVERSAL
+cp .build/baron/baron "$APP/Contents/MacOS/"
+cp ThirdParty/baron/LICENSE "$APP/Contents/Resources/Baron-LICENSE.txt"
+cp ThirdParty/baron/extern/richc/LICENSE "$APP/Contents/Resources/richc-LICENSE.txt"
 cp LICENSE "$APP/Contents/Resources/LICENSE.txt"
 # The release notes, for Help > What's New.
 cp WHATSNEW.md "$APP/Contents/Resources/WhatsNew.md"
@@ -90,6 +96,7 @@ sign "$SPARKLE/Updater.app"
 sign "$APP/Contents/Frameworks/Sparkle.framework"
 sign "$APP/Contents/MacOS/macbeeb-mcp"
 sign "$APP/Contents/MacOS/beebasm"
+sign "$APP/Contents/MacOS/baron"
 sign --entitlements Resources/QuickLook/QuickLook.entitlements "$APPEX"
 sign "$APP"
 codesign --verify --deep --strict "$APP"

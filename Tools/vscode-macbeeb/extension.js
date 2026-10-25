@@ -4,6 +4,7 @@
 
 const vscode = require("vscode");
 const net = require("net");
+const path = require("path");
 const { execFile } = require("child_process");
 
 const bundleID = "com.accidentalfish.macbeeb";
@@ -29,6 +30,28 @@ async function waitForMacBeeb(port) {
   throw new Error(`MacBeeb isn't listening on port ${port}. Is it installed, with debugging on in Settings > Debugging?`);
 }
 
+// Baron and BeebAsm sources can both be .6502: Baron's save sections with
+// a filename, BeebAsm's SAVE.
+function looksLikeBaron(document) {
+  const text = document.getText();
+  return /^\s*SECTION\b/im.test(text) && !/^\s*SAVE\s*"/im.test(text);
+}
+
+// A Baron launch for the active file, using the Baron extension's settings
+// (root source files, switches and defines) when it has them.
+function baronConfiguration(config, document) {
+  const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+  const settings = vscode.workspace.getConfiguration("baron", document.uri);
+  const roots = settings.get("sourceFiles") || [];
+  config.type = "macbeeb";
+  config.request = "launch";
+  config.name = "Assemble and run (Baron)";
+  config.baron = roots.length && folder ? roots.map((f) => path.resolve(folder.uri.fsPath, f)) : [document.fileName];
+  const defines = (settings.get("defines") || []).flatMap((d) => ["-D", d.includes("=") ? d : `${d}=TRUE`]);
+  config.baronArgs = [...defines, ...(settings.get("buildArgs") || [])];
+  return config;
+}
+
 function activate(context) {
   context.subscriptions.push(
     vscode.debug.registerDebugAdapterDescriptorFactory("macbeeb", {
@@ -40,11 +63,14 @@ function activate(context) {
     }),
     vscode.debug.registerDebugConfigurationProvider("macbeeb", {
       resolveDebugConfiguration(folder, config) {
-        // F5 with no launch.json: assemble and run a BeebAsm file, run a
-        // BASIC program, or run the binary built from a ca65 one.
+        // F5 with no launch.json: assemble and run a BeebAsm or Baron file,
+        // run a BASIC program, or run the binary built from a ca65 one.
         if (!config.type && !config.request) {
           const editor = vscode.window.activeTextEditor;
-          if (editor && editor.document.languageId === "beebasm") {
+          const language = editor && editor.document.languageId;
+          if (language === "baron" || (language === "beebasm" && looksLikeBaron(editor.document))) {
+            baronConfiguration(config, editor.document);
+          } else if (language === "beebasm") {
             config.type = "macbeeb";
             config.request = "launch";
             config.name = "Assemble and run";
@@ -62,7 +88,7 @@ function activate(context) {
           }
         }
         // Save before assembling (or loading BASIC).
-        if (config.source || config.basic) {
+        if (config.source || config.baron || config.basic) {
           return vscode.workspace.saveAll(false).then(() => config);
         }
         return config;
