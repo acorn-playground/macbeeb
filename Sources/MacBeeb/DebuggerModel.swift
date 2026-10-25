@@ -62,9 +62,10 @@ final class DebuggerModel {
                    old.view.memorySpace == result.view.memorySpace, old.view.memoryAddress == result.view.memoryAddress {
                     previousMemory = old.memory
                 }
-                // A BASIC stop shows the program.
-                if let reason = result.stopReason, reason != lastStop, reason.isBasic, !self.view.basic {
-                    self.view.basic = true
+                // A BASIC stop shows the program, and any other stop the
+                // machine code.
+                if let reason = result.stopReason, reason != lastStop, reason.isBasic != self.view.basic {
+                    self.view.basic = reason.isBasic
                 }
                 lastStop = result.stopReason
                 snapshot = result

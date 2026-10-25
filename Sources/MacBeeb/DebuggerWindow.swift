@@ -197,20 +197,35 @@ struct DisassemblyView: View {
             }
             .padding(8)
             Divider()
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(model.snapshot?.disassembly ?? []) { line in
-                        DisassemblyRow(line: line, stopped: model.isStopped) {
-                            model.toggleBreakpoint(at: line.address)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(model.snapshot?.disassembly ?? []) { line in
+                            DisassemblyRow(line: line, stopped: model.isStopped) {
+                                model.toggleBreakpoint(at: line.address)
+                            }
                         }
                     }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
+                // Where it stops is in view (labels above it can push it
+                // down), but running doesn't pull the view about.
+                .onAppear { scrollToPC(proxy) }
+                .onChange(of: model.isStopped ? stoppedPC : nil) { scrollToPC(proxy) }
             }
             if let message = model.message {
                 Text(message).font(.callout).foregroundStyle(.red).padding(6)
             }
         }
+    }
+
+    private var stoppedPC: UInt16? {
+        model.snapshot?.disassembly.first { $0.isPC }?.address
+    }
+
+    private func scrollToPC(_ proxy: ScrollViewProxy) {
+        guard let pc = stoppedPC else { return }
+        proxy.scrollTo(pc, anchor: UnitPoint(x: 0, y: 0.3))
     }
 
     private func loadSymbols() {
