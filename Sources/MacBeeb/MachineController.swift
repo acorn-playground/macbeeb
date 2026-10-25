@@ -8,6 +8,7 @@ import BeebLibrary
 import BeebNetwork
 import BeebROMs
 import Observation
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// What a network station's controller tells its network: the station's
@@ -432,6 +433,19 @@ final class MachineController {
                 // A BASIC program, as if dropped on the window.
                 runBASICProgram(URL(fileURLWithPath: file))
                 try? await Task.sleep(for: .seconds(3))
+            } else if UserDefaults.standard.bool(forKey: "MacBeebSelfTestCredits") {
+                // Help > Credits, drawn offscreen.
+                let view = NSHostingView(rootView: CreditsWindow().background(Color(nsColor: .windowBackgroundColor)))
+                view.appearance = NSAppearance(named: .aqua)
+                view.frame = NSRect(x: 0, y: 0, width: 680, height: 720)
+                let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
+                window.contentView = view
+                try? await Task.sleep(for: .seconds(1))
+                if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?
+                        .write(to: URL(fileURLWithPath: path.replacingOccurrences(of: ".png", with: "-credits.png")))
+                }
             } else if UserDefaults.standard.bool(forKey: "MacBeebSelfTestBasicDebugger") {
                 // A program stopped at a BASIC breakpoint in a PROC, then
                 // stepped, then stopped at an error: the debugger's BASIC

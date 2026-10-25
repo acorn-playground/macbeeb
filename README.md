@@ -46,6 +46,8 @@ you.
   and timing results to test against.
 
 The drive noises are [MAME](https://github.com/mamedev/mame)'s recordings.
+[CREDITS.md](CREDITS.md) (Help ▸ Credits in the app) thanks everyone else
+whose work MacBeeb builds on and includes.
 
 ## Layout
 

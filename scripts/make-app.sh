@@ -49,7 +49,11 @@ make baron UNIVERSAL=$UNIVERSAL
 cp .build/baron/baron "$APP/Contents/MacOS/"
 cp ThirdParty/baron/LICENSE "$APP/Contents/Resources/Baron-LICENSE.txt"
 cp ThirdParty/baron/extern/richc/LICENSE "$APP/Contents/Resources/richc-LICENSE.txt"
+# Sparkle's licence, beside the others (see CREDITS.md).
+cp .build/artifacts/sparkle/Sparkle/LICENSE "$APP/Contents/Resources/Sparkle-LICENSE.txt"
 cp LICENSE "$APP/Contents/Resources/LICENSE.txt"
+# The credits, for Help > Credits.
+cp CREDITS.md "$APP/Contents/Resources/Credits.md"
 # The release notes, for Help > What's New.
 cp WHATSNEW.md "$APP/Contents/Resources/WhatsNew.md"
 # The Quick Look preview of disc images, an app extension.

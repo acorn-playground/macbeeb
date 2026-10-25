@@ -30,6 +30,8 @@ struct MacBeebApp: App {
             CommandGroup(replacing: .help) {
                 WhatsNewMenuItem()
                 GuideMenuItem()
+                Divider()
+                CreditsMenuItem()
             }
             CommandGroup(replacing: .newItem) {
                 BookshelfMenuItem()
@@ -372,6 +374,11 @@ struct MacBeebApp: App {
             WhatsNewView()
         }
         .defaultSize(width: 520, height: 520)
+
+        Window("Credits", id: CreditsWindow.windowID) {
+            CreditsWindow()
+        }
+        .defaultSize(width: 680, height: 720)
 
         Settings {
             SettingsView()
