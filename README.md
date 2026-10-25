@@ -59,7 +59,7 @@ whose work MacBeeb builds on and includes.
 | `Sources/BeebLibrary` | The BBC Micro Classics catalogue and covers, the library of imported games, and quick saves |
 | `Sources/BeebHost` | Runs a machine on its own thread, paced by audio |
 | `Sources/BeebAgentKit`, `Sources/macbeeb-mcp` | Agent tools and the MCP server |
-| `Sources/BeebDAP`, `Tools/vscode-macbeeb` | The Debug Adapter Protocol server and the VS Code extension |
+| `Sources/BeebDAP` | The Debug Adapter Protocol server (the VS Code extension is [its own repository](https://github.com/acorn-playground/vscode-macbeeb)) |
 | `ThirdParty/beebasm` | BeebAsm (submodule), built into the app |
 | `ThirdParty/baron` | Baron (submodule, with richc inside), built into the app |
 | `Sources/MacBeeb` | The Mac app |
@@ -203,7 +203,7 @@ files and round FOR loops (as many times as Baron's symbols say each ran).
 ## Source-level debugging (VS Code)
 
 MacBeeb serves the Debug Adapter Protocol on localhost port 6502 (Settings >
-Debugging). The extension in `Tools/vscode-macbeeb` connects VS Code to it:
+Debugging). The [MacBeeb extension for VS Code](https://github.com/acorn-playground/vscode-macbeeb) connects VS Code to it:
 breakpoints in assembler source (from ld65 `--dbgfile` debug info, which
 maps every byte to its line), conditions, hit counts and log points;
 stepping over, into, out and back, reverse continue; call stacks from the

@@ -1,7 +1,8 @@
 # Debugging BBC BASIC
 
 `primes.bas` is a BBC BASIC program to debug, in VS Code (with the MacBeeb
-extension, Tools/vscode-macbeeb) or in MacBeeb's own debugger.
+extension, https://github.com/acorn-playground/vscode-macbeeb) or in
+MacBeeb's own debugger.
 
 In VS Code, open this folder and press F5 in `primes.bas`, or pick a launch
 configuration: one stops at the first statement, the other runs on a 6502

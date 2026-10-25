@@ -390,7 +390,7 @@ struct DebuggingSettingsView: View {
                 Toggle("Let editors debug the BBC (Debug Adapter Protocol)", isOn: $enabled)
                 TextField("Port", value: $port, format: .number.grouping(.never))
                     .disabled(!enabled)
-                Text("VS Code and other editors that speak DAP connect to localhost on this port, to set breakpoints in your source (with ld65 debug info), step, and inspect the machine. The MacBeeb extension for VS Code is in Tools/vscode-macbeeb. Changes take effect next launch.")
+                Text("VS Code and other editors that speak DAP connect to localhost on this port, to set breakpoints in your source (with ld65 debug info), step, and inspect the machine. The MacBeeb extension for VS Code is at github.com/acorn-playground/vscode-macbeeb. Changes take effect next launch.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
