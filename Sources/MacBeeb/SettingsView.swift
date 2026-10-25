@@ -381,6 +381,7 @@ final class KeyRecorder {
 }
 
 struct DebuggingSettingsView: View {
+    @Environment(\.openWindow) private var openWindow
     @AppStorage(MachineController.debugAdapterEnabledKey) private var enabled = true
     @AppStorage(MachineController.debugAdapterPortKey) private var port = Int(6502)
 
@@ -390,9 +391,17 @@ struct DebuggingSettingsView: View {
                 Toggle("Let editors debug the BBC (Debug Adapter Protocol)", isOn: $enabled)
                 TextField("Port", value: $port, format: .number.grouping(.never))
                     .disabled(!enabled)
-                Text("VS Code and other editors that speak DAP connect to localhost on this port, to set breakpoints in your source (with ld65 debug info), step, and inspect the machine. The MacBeeb extension for VS Code is at github.com/acorn-playground/vscode-macbeeb. Changes take effect next launch.")
+                Text("VS Code and other editors that speak DAP connect to localhost on this port, to set breakpoints in your source, step, and inspect the machine. Changes take effect next launch.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+            }
+            Section("VS Code") {
+                LabeledContent("The MacBeeb extension") {
+                    Link("Visual Studio Marketplace", destination: VSCodeExtension.marketplace)
+                }
+                LabeledContent("How to use it") {
+                    Button("Debugging with VS Code Guide") { openWindow(id: GuideWindow.windowID, value: "vscode") }
+                }
             }
         }
         .formStyle(.grouped)

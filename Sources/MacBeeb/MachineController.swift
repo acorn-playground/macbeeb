@@ -433,6 +433,20 @@ final class MachineController {
                 // A BASIC program, as if dropped on the window.
                 runBASICProgram(URL(fileURLWithPath: file))
                 try? await Task.sleep(for: .seconds(3))
+            } else if let page = UserDefaults.standard.string(forKey: "MacBeebSelfTestGuide"), let blocks = Guide.document(page) {
+                // A guide page, drawn offscreen at its full length.
+                let view = NSHostingView(rootView: GuideDocumentView(blocks: blocks).padding(32).frame(width: 760)
+                    .background(Color(nsColor: .windowBackgroundColor)))
+                view.appearance = NSAppearance(named: .aqua)
+                view.frame = NSRect(origin: .zero, size: view.fittingSize)
+                let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
+                window.contentView = view
+                try? await Task.sleep(for: .seconds(1))
+                if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?
+                        .write(to: URL(fileURLWithPath: path.replacingOccurrences(of: ".png", with: "-guide.png")))
+                }
             } else if UserDefaults.standard.bool(forKey: "MacBeebSelfTestCredits") {
                 // Help > Credits, drawn offscreen.
                 let view = NSHostingView(rootView: CreditsWindow().background(Color(nsColor: .windowBackgroundColor)))

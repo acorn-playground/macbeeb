@@ -207,6 +207,9 @@ struct MacBeebApp: App {
                 }
                 .keyboardShortcut("y", modifiers: [.command, .control])
                 .disabled(machine == nil)
+                Divider()
+                VSCodeGuideMenuItem()
+                Link("Get the VS Code Extension", destination: VSCodeExtension.marketplace)
             }
             CommandMenu("MCP") {
                 MCPMenu()

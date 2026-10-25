@@ -90,6 +90,7 @@ enum Guide {
         ("aries-b32-b12", "square.3.layers.3d"),
         ("videonula", "paintpalette"),
         ("developer-reference", "chevron.left.forwardslash.chevron.right"),
+        ("vscode", "ladybug"),
         ("network-studio", "point.3.connected.trianglepath.dotted"),
         ("ai-agents", "brain"),
     ]
@@ -341,5 +342,20 @@ struct GuideMenuItem: View {
         Button("Hardware Expansion Guide") { openWindow(id: GuideWindow.windowID, value: "README") }
         Button("Network Studio Guide") { openWindow(id: GuideWindow.windowID, value: "network-studio") }
         Button("AI Agents Guide") { openWindow(id: GuideWindow.windowID, value: "ai-agents") }
+        VSCodeGuideMenuItem()
     }
+}
+
+/// Help > Debugging with VS Code (also in the Debug menu).
+struct VSCodeGuideMenuItem: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Debugging with VS Code Guide") { openWindow(id: GuideWindow.windowID, value: "vscode") }
+    }
+}
+
+/// The MacBeeb extension for VS Code.
+enum VSCodeExtension {
+    static let marketplace = URL(string: "https://marketplace.visualstudio.com/items?itemName=AcornPlayground.macbeeb-debug")!
 }

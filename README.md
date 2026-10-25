@@ -203,7 +203,9 @@ files and round FOR loops (as many times as Baron's symbols say each ran).
 ## Source-level debugging (VS Code)
 
 MacBeeb serves the Debug Adapter Protocol on localhost port 6502 (Settings >
-Debugging). The [MacBeeb extension for VS Code](https://github.com/acorn-playground/vscode-macbeeb) connects VS Code to it:
+Debugging). The MacBeeb extension for VS Code
+([Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=AcornPlayground.macbeeb-debug),
+[source](https://github.com/acorn-playground/vscode-macbeeb)) connects VS Code to it:
 breakpoints in assembler source (from ld65 `--dbgfile` debug info, which
 maps every byte to its line), conditions, hit counts and log points;
 stepping over, into, out and back, reverse continue; call stacks from the
@@ -221,6 +223,9 @@ Z%), to change too; the debug console and hovers evaluate BASIC; and BASIC
 errors are exceptions, stopping where they happen. It works on a 6502
 Second Processor too (`"secondProcessor": true`). `Examples/hello-basic`
 is a program to try.
+
+[Debugging with VS Code](docs/hardware-expansions/vscode.md) (Help ▸
+Debugging with VS Code Guide in the app) walks through it all.
 
 Symbols (ld65 debug info, or label files from ld65 `-Ln`, VICE or
 `name = $1234` lists) work in the app's debugger and the agent tools too:
