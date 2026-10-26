@@ -1,0 +1,101 @@
+/* The Distributed Mandelbrot page: the Guide and the server side by side,
+   the workers in a grid below. */
+
+main {
+  max-width: 1200px;
+}
+
+header {
+  max-width: 1200px;
+}
+
+.network .row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.workers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.station {
+  margin: 0;
+  cursor: pointer;
+}
+
+.station .bezel {
+  padding: 8px;
+  border-radius: 10px;
+}
+
+.station.guide .bezel {
+  padding: 16px;
+  border-radius: 14px;
+}
+
+.station canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: calc(736 * 24 / 25) / 576;
+  background: #000;
+  border-radius: 3px;
+  outline: none;
+}
+
+.station.selected canvas,
+.station canvas:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.station figcaption {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.steps {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin: 10px 0;
+}
+
+.steps ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.steps li {
+  margin: 4px 0;
+  color: var(--muted);
+}
+
+.steps li.now {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.steps li.done {
+  text-decoration: line-through;
+}
+
+.steps .hint {
+  margin: 4px 0;
+}
+
+@media (max-width: 700px) {
+  .network .row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* (The single-BBC page's selected station spans its row: not here.) */
+.network .station.selected {
+  grid-column: auto;
+}

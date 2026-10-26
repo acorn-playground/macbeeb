@@ -57,3 +57,8 @@ else
     cp ".build-wasm/$CONFIGURATION/BeebWasmModule.wasm" "$OUT"
 fi
 echo "$OUT: $(wc -c < "$OUT" | tr -d ' ') bytes"
+
+# The discs web/'s Distributed Mandelbrot page boots, made natively (by
+# the Mac app's own code, with Xcode's Swift: the module's toolchain is
+# for WebAssembly).
+xcrun swift run -c release --scratch-path .build web-discs .build-wasm/discs

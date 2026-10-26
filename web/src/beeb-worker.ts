@@ -360,6 +360,8 @@ function power(message: ToWorker & { type: "power" }) {
   try {
     for (const rom of message.roms) m.loadROM(rom.slot, new Uint8Array(rom.bytes));
     if (message.econet) m.setEconetStation(message.econet);
+    if (message.tube) m.setSecondProcessor(new Uint8Array(message.tube));
+    if (message.nula) m.setVideoNuLA(true);
     m.powerOn();
   } catch (error) {
     m.release();

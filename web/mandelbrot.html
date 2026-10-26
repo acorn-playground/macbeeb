@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Distributed Mandelbrot</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/mandelbrot.css" />
+  </head>
+  <body>
+    <header>
+      <h1>The Distributed Mandelbrot <span>on Econet</span></h1>
+      <p class="tagline">
+        BBC Micros draw the Mandelbrot set between them, each tile worked out by its own 6502 and sent back over
+        Econet, with a Level 2 file server keeping the programs. MacBeeb's Network Studio demo, in a browser:
+        every machine here is MacBeeb's emulation, compiled to WebAssembly, all on one network.
+        <a href="./">A single BBC Micro</a>
+      </p>
+    </header>
+
+    <main>
+      <section id="error" class="error" hidden>
+        <span id="error-text"></span>
+        <button id="error-dismiss" type="button">Dismiss</button>
+      </section>
+
+      <section class="toolbar" aria-label="The network">
+        <label>Version
+          <select id="version">
+            <option value="mode5">MODE 5 (*MANDEL)</option>
+            <option value="colour">In colour: MODE 2 and VideoNuLA (*MANDEL2)</option>
+          </select>
+        </label>
+        <label>Workers
+          <select id="workers">
+            <option>2</option><option>3</option><option>4</option><option>5</option>
+            <option>6</option><option>7</option><option selected>8</option>
+          </select>
+        </label>
+        <button id="start" type="button" disabled>Start again</button>
+        <button id="pause" type="button" disabled>Pause</button>
+        <button id="sound" type="button" aria-pressed="false">Sound off</button>
+        <span id="state" class="state">Loading…</span>
+      </section>
+
+      <section class="steps" aria-label="What to do">
+        <ol>
+          <li id="step-server">The file server starts (it takes about 15 seconds of BBC time).</li>
+          <li id="step-guide">The Guide logs on and shows what to do.</li>
+          <li id="step-cluster"><button id="cluster" type="button" disabled>Type *CLUSTER</button> on the Guide: it finds
+            the workers at BASIC and starts them by remote control.</li>
+          <li id="step-mandel"><button id="mandel" type="button" disabled>Type *MANDEL</button> on the Guide: it hands
+            out the tiles, and draws them as they come back. A key on the Guide ends it.</li>
+        </ol>
+        <p class="hint">Or click any screen and type on that BBC yourself.</p>
+      </section>
+
+      <section class="network">
+        <div class="row">
+          <figure class="station guide selected" data-role="guide">
+            <div class="bezel"><canvas width="736" height="576" tabindex="0"></canvas></div>
+            <figcaption>Station 1 · the Guide</figcaption>
+          </figure>
+          <figure class="station server" data-role="server">
+            <div class="bezel"><canvas width="736" height="576" tabindex="0"></canvas></div>
+            <figcaption>Station 254 · Level 2 file server (with a 6502 Second Processor)</figcaption>
+          </figure>
+        </div>
+        <div id="workers-grid" class="workers"></div>
+      </section>
+
+      <p id="network-stats" class="state"></p>
+    </main>
+
+    <footer>
+      <p>
+        <a href="https://github.com/acorn-playground/macbeeb">MacBeeb</a> is free software under the GNU GPL v3,
+        built on the work of many others (b2, jsbeeb, beebjit, BeebEm and more): see its
+        <a href="https://github.com/acorn-playground/macbeeb/blob/main/CREDITS.md">credits</a>. The ROMs and the
+        Level 2 file server are Acorn's.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/mandelbrot.ts"></script>
+  </body>
+</html>

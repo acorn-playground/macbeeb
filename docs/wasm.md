@@ -40,7 +40,7 @@ Then build the module:
 scripts/build-wasm.sh            # or: make wasm
 ```
 
-That writes `.build-wasm/beeb.wasm`. It's optimised and stripped: 14.5MB, or 4.2MB gzipped.
+That writes `.build-wasm/beeb.wasm`. It's optimised and stripped: 14.5MB, or 4.2MB gzipped. It also runs `web-discs`, a small native tool, to write the Distributed Mandelbrot's discs into `.build-wasm/discs`. The tool uses the Mac app's own BeebNetwork code, which isn't in the module.
 
 - `--names` keeps function names, for profiling.
 - `--debug` builds it unoptimised.
@@ -105,6 +105,24 @@ What it has:
   - The service needs to allow browsers (cross-origin requests): see "Internet Econet" below.
 - **Performance:** the panel shows the BBC's speed, cycles requested and run, fields, frames drawn, batch times, dropped time and memory.
 
+### The Distributed Mandelbrot
+
+`mandelbrot.html` (linked from the first page) is Network Studio's Distributed Mandelbrot. Ten Model Bs with DNFS share one Econet:
+
+- the Guide, station 1;
+- eight workers, stations 2-9 (or fewer: choose 2-8);
+- a Level 2 file server, station 254, with a 6502 Second Processor.
+
+The page starts it all as the Mac app does:
+
+1. It powers them on.
+2. It puts the server's disc in drive 0 and the Level 2 utilities in drive 1, and types the server's start-up answers. The date is today's, in 1988, because the server can't hold this century's years.
+3. It boots the Guide's disc. The Guide logs on, trying again until the server's up, and shows what to do.
+
+Its buttons type `*CLUSTER`, which starts the workers by remote control, and `*MANDEL` on the Guide; or click any screen and type there. The colour version uses MODE 2 on a Guide with VideoNuLA (`*MANDEL2`).
+
+All ten machines run in one worker, in lockstep, at about real time on an M4 Max: the whole picture takes about 25 seconds of BBC time. A slower computer runs it slower, and the page shows the speed. Fewer workers make it lighter.
+
 How it runs:
 
 - **The worker:** a Web Worker (`beeb-worker.ts`) owns the module and the clock, and the page only handles the UI.
@@ -127,7 +145,7 @@ How it runs:
 
 ## The ABI
 
-Version 2, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift` and `NetworkExports.swift`), wrapped by `web/src/beeb-wasm.ts`. Version 2 added sound, joysticks and Econet to version 1, which is otherwise unchanged.
+Version 2, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift` and `NetworkExports.swift`), wrapped by `web/src/beeb-wasm.ts`. Version 2 added sound, joysticks, Econet, the 6502 Second Processor and VideoNuLA to version 1, which is otherwise unchanged.
 
 ### Conventions
 
@@ -183,6 +201,8 @@ Version 2, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift` and
 | `beeb_audio_start(h, rate)`, `beeb_audio_read(h, out, n)` | Mono float samples at `rate` (8,000-192,000; 0 stops it), from the core's mixer. Samples not read within two seconds are dropped. |
 | `beeb_set_joystick(h, i, x, y, fire)` | Joystick 0 or 1: x and y from -1 (left, down) to 1 (right, up). It stays as set through power cycles. On a Master Compact, joystick 0 is its digital one. |
 | `beeb_set_econet_station(h, n)` | Fits an Econet module as station n (1-254), or takes it out (0). A machine that's on is power cycled. |
+| `beeb_set_second_processor(h, p, n)` | Fits a 6502 Second Processor with its client ROM (TUBE110), or takes it out (no ROM). A machine that's on is power cycled. |
+| `beeb_set_video_nula(h, on)` | VideoNuLA in place of the Video ULA. A machine that's on is power cycled. |
 
 ### Networks
 
@@ -259,8 +279,8 @@ Measured on 26 October 2026: an Apple M4 Max (Mac16,5) with macOS 27.0.1, Swift 
 ### Correctness
 
 - **Parity:** every checkpoint matches between native and WebAssembly. That covers:
-  - 23 checkpoints;
-  - 9 scenarios, among them Model B BASIC, disc boot and write, save and restore, a Master 128, sound (every sample) and a joystick read by `ADVAL`, and a message over Econet between two stations;
+  - 25 checkpoints;
+  - 10 scenarios, among them Model B BASIC, disc boot and write, save and restore, a Master 128, sound (every sample) and a joystick read by `ADVAL`, a message over Econet between two stations, and BASIC in a 6502 Second Processor;
   - save states crossing native to WebAssembly and back.
 - **Save states:** a restored machine equals an uninterrupted one (CPU, cycles, RAM and screen).
 - **Bad input:** every kind of bad input is refused without a trap.
@@ -274,6 +294,7 @@ Measured on 26 October 2026: an Apple M4 Max (Mac16,5) with macOS 27.0.1, Swift 
   - A gamepad (faked in the page) is read by BASIC's `ADVAL`, with its fire button.
   - Two stations in one page send a message over their Econet.
   - Two browser pages, each a station, make and join a room on a local copy of the Internet Econet service and send a message through it.
+  - The Distributed Mandelbrot page: the Level 2 server starts, `*CLUSTER` starts eight workers, `*MANDEL` has them draw all 320 tiles, and the Guide counts them.
 - **Internet Econet:**
   - Two module instances in Node talk through a room on a local copy of the service.
   - The browser version's station sends to MacBeeb's own (the native build, running its Internet Econet client) through a room.

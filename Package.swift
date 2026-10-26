@@ -95,6 +95,9 @@ let package = Package(
         // builds it with the Swift SDK for WebAssembly; natively it's an
         // ordinary library (which the parity tests call) and a stub tool.
         .target(name: "BeebWasm", dependencies: ["BeebCore"]),
+        // The discs the browser's Distributed Mandelbrot page boots, built
+        // (natively) by the Mac app's own code.
+        .executableTarget(name: "web-discs", dependencies: ["BeebCore", "BeebNetwork"]),
         .executableTarget(
             name: "BeebWasmModule",
             dependencies: ["BeebWasm"],

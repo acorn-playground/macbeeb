@@ -198,6 +198,34 @@
     "x" : 0,
     "y" : 10
   },
+  "modelB-second-processor\/booted" : {
+    "a" : 224,
+    "cycles" : 4000000,
+    "frame" : "842e0c21",
+    "frames" : 125,
+    "p" : 51,
+    "pc" : 57071,
+    "ram" : "ba7d214d",
+    "s" : 245,
+    "status" : 5,
+    "text" : "\nAcorn TUBE 6502 64K\n\nAcorn DFS\n\nBASIC\n\n>\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+    "x" : 0,
+    "y" : 10
+  },
+  "modelB-second-processor\/printed" : {
+    "a" : 241,
+    "cycles" : 7100000,
+    "frame" : "c34ad2d2",
+    "frames" : 203,
+    "p" : 51,
+    "pc" : 58756,
+    "ram" : "5bb6b8bf",
+    "s" : 243,
+    "status" : 5,
+    "text" : "\nAcorn TUBE 6502 64K\n\nAcorn DFS\n\nBASIC\n\n>PRINT PAGE,HIMEM\n      2048     32768\n>\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+    "x" : 0,
+    "y" : 0
+  },
   "modelB-sound-and-joystick\/played" : {
     "a" : 245,
     "audio" : "d8737241",

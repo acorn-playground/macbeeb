@@ -17,6 +17,8 @@ export default defineConfig({
   worker: { format: "es" },
   build: {
     target: "es2022",
+    // The single BBC, and the Distributed Mandelbrot.
+    rollupOptions: { input: { main: path.join(import.meta.dirname, "index.html"), mandelbrot: path.join(import.meta.dirname, "mandelbrot.html") } },
     // The module is 14MB; it's fetched, not inlined.
     assetsInlineLimit: 0,
   },

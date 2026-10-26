@@ -69,6 +69,7 @@ class Runner {
     const machine = this.module.createMachine(spec.model as Model);
     for (const [slot, name] of Object.entries(spec.roms)) machine.loadROM(Number(slot), file(name as string));
     if (spec.station) machine.setEconetStation(spec.station);
+    if (spec.tube) machine.setSecondProcessor(file(spec.tube));
     machine.powerOn();
     return machine;
   }

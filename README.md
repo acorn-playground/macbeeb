@@ -111,7 +111,7 @@ can't verify new updates.
 
 ## Browser / WebAssembly
 
-BeebCore, the very same Swift emulation, also builds as a WebAssembly module. The browser demo in `web/` runs it (a Model B or Master 128 with sound, joysticks, discs, save states and Econet, between stations in the page and with others in Internet Econet rooms); so does a local Cloudflare Worker and Durable Object proof in `cloudflare/`.
+BeebCore, the very same Swift emulation, also builds as a WebAssembly module. The browser demo in `web/` runs it (a Model B or Master 128 with sound, joysticks, discs, save states and Econet, between stations in the page and with others in Internet Econet rooms), and Network Studio's Distributed Mandelbrot in `web/mandelbrot.html`; so does a local Cloudflare Worker and Durable Object proof in `cloudflare/`.
 
 ```
 make wasm                                  # .build-wasm/beeb.wasm (needs the swift.org 6.4.1 toolchain and its WebAssembly SDK)

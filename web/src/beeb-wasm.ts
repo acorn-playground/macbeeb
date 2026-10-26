@@ -227,6 +227,17 @@ export class BeebMachine {
     this.call("beeb_set_joystick", index, x, y, fire ? 1 : 0);
   }
 
+  /** A 6502 Second Processor, with its client ROM (TUBE110), or none (null). Power cycles a machine that's on. */
+  setSecondProcessor(rom: Uint8Array | null) {
+    if (rom) this.module.withBytes(rom, (p, n) => this.call("beeb_set_second_processor", p, n));
+    else this.call("beeb_set_second_processor", 0, 0);
+  }
+
+  /** VideoNuLA in place of the Video ULA. Power cycles a machine that's on. */
+  setVideoNuLA(on: boolean) {
+    this.call("beeb_set_video_nula", on ? 1 : 0);
+  }
+
   /** An Econet module with this station number (1-254), or none (0). Power cycles a machine that's on. */
   setEconetStation(station: number) {
     this.call("beeb_set_econet_station", station);

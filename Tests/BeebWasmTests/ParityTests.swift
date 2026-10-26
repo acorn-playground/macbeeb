@@ -78,6 +78,10 @@ struct ParityTests {
                 #expect(rom.withUnsafeBytes { beeb_load_rom(handle, Int32(slot)!, $0.baseAddress, Int32($0.count)) } == 0)
             }
             if let station = spec["station"] as? Int { #expect(beeb_set_econet_station(handle, Int32(station)) == 0) }
+            if let tube = spec["tube"] as? String {
+                let rom = try file(tube)
+                #expect(rom.withUnsafeBytes { beeb_set_second_processor(handle, $0.baseAddress, Int32($0.count)) } == 0)
+            }
             #expect(beeb_power_on(handle) == 0)
             return handle
         }

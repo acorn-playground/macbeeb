@@ -18,7 +18,9 @@ export type ToWorker =
   /** A station's screen (an OffscreenCanvas, or null to send the page the pixels). */
   | { type: "canvas"; station: number; canvas: OffscreenCanvas | null }
   | ({ type: "power"; model: Model; roms: { slot: number; bytes: ArrayBuffer }[]; econet: number | null;
-       claim: Omit<StationClaim, "station"> } & StationTarget)
+       claim: Omit<StationClaim, "station">;
+       /** A 6502 Second Processor's client ROM (TUBE110), and VideoNuLA. */
+       tube?: ArrayBuffer; nula?: boolean } & StationTarget)
   | { type: "removeStation"; station: number }
   /** The station whose sound plays and whose joysticks the gamepads are. */
   | { type: "select"; station: number }

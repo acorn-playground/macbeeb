@@ -397,6 +397,38 @@
       ]
     },
     {
+      "name": "modelB-second-processor",
+      "about": "A 6502 Second Processor on the Tube: BASIC runs in the parasite (as the Level 2 file server needs it).",
+      "licensed": true,
+      "model": 1,
+      "roms": {
+        "-1": "@os12.rom",
+        "15": "@basic2.rom",
+        "14": "@dfs12.rom"
+      },
+      "tube": "@tube110.rom",
+      "steps": [
+        {
+          "run": 4000000
+        },
+        {
+          "check": "booted"
+        },
+        {
+          "type": "PRINT PAGE,HIMEM\n"
+        },
+        {
+          "untilTyped": true
+        },
+        {
+          "run": 400000
+        },
+        {
+          "check": "printed"
+        }
+      ]
+    },
+    {
       "name": "master128-basic",
       "licensed": true,
       "model": 3,

@@ -10,8 +10,14 @@ const roms = import.meta.glob([
   "../../Sources/BeebROMs/ROMs/dnfs.rom",
   "../../Sources/BeebROMs/ROMs/anfs425.rom",
   "../../Sources/BeebROMs/ROMs/mos320-*.rom",
+  "../../Sources/BeebROMs/ROMs/tube110.rom",
 ], { query: "?url", import: "default", eager: true }) as Record<string, string>;
-const discs = import.meta.glob("../../Sources/BeebROMs/Discs/econet-level1.ssd", { query: "?url", import: "default", eager: true }) as Record<string, string>;
+const discs = import.meta.glob([
+  "../../Sources/BeebROMs/Discs/econet-level1.ssd",
+  "../../Sources/BeebROMs/Discs/econet-level2.ssd",
+  // The Distributed Mandelbrot's, which scripts/build-wasm.sh makes.
+  "../../.build-wasm/discs/*",
+], { query: "?url", import: "default", eager: true }) as Record<string, string>;
 
 function find(urls: Record<string, string>, name: string): string | undefined {
   return Object.entries(urls).find(([file]) => file.endsWith(`/${name}`))?.[1];
@@ -32,3 +38,6 @@ export const bundledROM = (name: string) => load(find(roms, name));
 
 /** Acorn's Level 1 file server, on the disc the Mac app's Network Studio uses. */
 export const fileServerDisc = () => load(find(discs, "econet-level1.ssd"));
+
+/** A bundled disc by name: econet-level2.ssd, mandelbrot-guide.ssd... */
+export const bundledDisc = (name: string) => load(find(discs, name));

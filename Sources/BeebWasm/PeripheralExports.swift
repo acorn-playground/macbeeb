@@ -69,3 +69,29 @@ public func beeb_set_econet_station(_ handle: Int32, _ station: Int32) -> Int32 
     if m.machine != nil { m.powerOn() }
     return 0
 }
+
+// MARK: Hardware
+
+/// Fits a 6502 Second Processor on the Tube, with its client ROM (TUBE110,
+/// 2K), or takes it out (no ROM). A machine that's on is power cycled.
+@_expose(wasm, "beeb_set_second_processor")
+@_cdecl("beeb_set_second_processor")
+public func beeb_set_second_processor(_ handle: Int32, _ pointer: UnsafeRawPointer?, _ count: Int32) -> Int32 {
+    guard let m = lookup(handle) else { return fail(.invalidHandle, "no machine \(handle)") }
+    guard let rom = bytes(pointer, count, limit: Limits.romBytes) else { return fail(.badData, "a ROM is at most 16K") }
+    m.configuration.secondProcessorROM = rom.isEmpty ? nil : rom
+    m.configuration.coprocessor = .mos6502
+    if m.machine != nil { m.powerOn() }
+    return 0
+}
+
+/// Fits VideoNuLA in place of the Video ULA (`on` 1), or the ULA (0). A
+/// machine that's on is power cycled.
+@_expose(wasm, "beeb_set_video_nula")
+@_cdecl("beeb_set_video_nula")
+public func beeb_set_video_nula(_ handle: Int32, _ on: Int32) -> Int32 {
+    guard let m = lookup(handle) else { return fail(.invalidHandle, "no machine \(handle)") }
+    m.configuration.videoNuLA = on != 0
+    if m.machine != nil { m.powerOn() }
+    return 0
+}
