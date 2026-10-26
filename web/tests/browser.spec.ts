@@ -21,14 +21,8 @@ async function waitForScreen(page: Page, pattern: RegExp, timeout = 20_000) {
 }
 
 async function bootModelB(page: Page) {
+  // It starts by itself, with MacBeeb's ROMs.
   await page.goto("/");
-  await expect(page.locator("#state")).toHaveText(/Choose the ROMs/, { timeout: 30_000 });
-  await expect(page.locator("#power")).toBeDisabled();
-  await page.setInputFiles("#rom--1", rom("os12.rom"));
-  await page.setInputFiles("#rom-15", rom("basic2.rom"));
-  await page.setInputFiles("#rom-14", rom("dfs12.rom"));
-  await expect(page.locator("#power")).toBeEnabled();
-  await page.click("#power");
   await waitForScreen(page, /BASIC\s*\n>/);
 }
 
@@ -38,6 +32,15 @@ async function canvasHasPicture(page: Page): Promise<boolean> {
   // A PNG of a black canvas is tiny; one with text on it isn't.
   return shot.length > 8000;
 }
+
+test("a viewer's own ROM replaces MacBeeb's", async ({ page }) => {
+  await bootModelB(page);
+  await page.locator("#roms summary").click();
+  await page.setInputFiles("#rom-15", rom("basic2.rom"));
+  await expect(page.locator("#rom-slots")).toContainText("BASIC II");
+  await page.click("#power");
+  await waitForScreen(page, /BASIC\s*\n>/);
+});
 
 test("boots to BASIC and answers PRINT 2+2", async ({ page }) => {
   const errors: string[] = [];
@@ -62,7 +65,7 @@ test("pause holds the machine, resume and Break carry on", async ({ page }) => {
   await page.click("#pause");
   await expect(page.locator("#pause")).toHaveText("Resume");
   await expect.poll(async () => (await page.evaluate(() => window.macbeeb.status()))?.paused).toBe(true);
-  const cycles = async () => (await page.evaluate(() => window.macbeeb.status()))?.cycles ?? 0;
+  const cycles = async () => (await page.evaluate(() => window.macbeeb.status()))?.stations[0]?.cycles ?? 0;
   const held = await cycles();
   await page.waitForTimeout(700);
   expect(await cycles()).toBe(held);
@@ -115,9 +118,6 @@ test("power cycles and model changes start a new machine", async ({ page }) => {
   await waitForScreen(page, /PRINT A\s*\n\s+0\s*\n>|No such variable/);
 
   await page.selectOption("#model", "master128");
-  const master: [number, string][] = [[-1, "mos"], [15, "terminal"], [14, "view"], [13, "adfs"], [12, "basic4"],
-    [11, "edit"], [10, "viewsht"], [9, "dfs"]];
-  for (const [slot, name] of master) await page.setInputFiles(`#rom-${slot}`, rom(`mos320-${name}.rom`));
   await page.click("#power");
   await waitForScreen(page, /Acorn MOS[\s\S]*BASIC\s*\n>/);
 });

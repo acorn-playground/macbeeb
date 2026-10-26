@@ -37,25 +37,29 @@
         </span>
       </section>
 
-      <details id="roms" class="panel" open>
+      <details id="roms" class="panel">
         <summary><h2>ROMs</h2></summary>
         <p>
-          The BBC needs its operating system and language ROMs, which are Acorn's and aren't part of this page.
-          Choose the images from your own copies; they stay in this browser and are never uploaded.
+          The BBCs start with the ROMs MacBeeb has (Acorn's). To use others, choose them here: they stay in
+          this browser and are never uploaded.
         </p>
         <div id="rom-slots" class="rom-slots"></div>
         <p class="rom-actions">
           <label><input id="remember-roms" type="checkbox" /> Remember these ROMs in this browser</label>
-          <button id="dev-roms" type="button" hidden>Use MacBeeb's ROMs (local development)</button>
         </p>
       </details>
 
       <section class="screen-wrap">
-        <div class="bezel">
-          <canvas id="screen" width="736" height="576" tabindex="0" aria-label="The BBC Micro's screen: click to type"></canvas>
+        <div id="stations" class="stations">
+          <figure class="station selected" data-station="1">
+            <div class="bezel">
+              <canvas id="screen" width="736" height="576" tabindex="0" aria-label="The BBC Micro's screen: click to type"></canvas>
+            </div>
+            <figcaption><span class="station-name">BBC Model B</span></figcaption>
+          </figure>
         </div>
         <p class="hint" id="focus-hint">
-          Click the screen to type on the BBC's keyboard. F12 is Break, End is COPY.
+          Click a screen to type on that BBC's keyboard. F12 is Break, End is COPY.
           <label>Keys:
             <select id="keyboard-mode">
               <option value="layout">as your keyboard types them</option>
@@ -63,6 +67,13 @@
             </select>
           </label>
         </p>
+      </section>
+
+      <section class="toolbar" aria-label="Sound and joysticks">
+        <button id="sound" type="button" aria-pressed="false">Sound off</button>
+        <label>Volume <input id="volume" type="range" min="0" max="1" step="0.05" value="0.6" /></label>
+        <span id="sound-meter" class="meter" aria-hidden="true"><span></span></span>
+        <span id="gamepads" class="state">No gamepads: connect one and press a button to use it as the BBC's joystick.</span>
       </section>
 
       <section class="toolbar" aria-label="Discs and text">
@@ -79,6 +90,42 @@
         <button id="save-state" type="button" disabled>Save state…</button>
         <label class="file">Load state <input id="load-state" type="file" accept=".beebstate" disabled /></label>
       </section>
+
+      <details class="panel" id="econet-panel">
+        <summary><h2>Econet</h2></summary>
+        <p>
+          With Econet on, every BBC here gets an Econet module (and its network filing system: DNFS on a
+          Model B, ANFS on a Master) and they share one network, run in step as MacBeeb runs them.
+        </p>
+        <p class="toolbar">
+          <label><input id="econet-on" type="checkbox" /> Econet</label>
+          <label>This BBC's station number <input id="station-number" type="number" min="1" max="254" value="1" /></label>
+          <button id="add-station" type="button" disabled>Add a BBC</button>
+          <button id="add-fileserver" type="button" disabled title="A Model B as station 254, for a file server's disc">Add a file server</button>
+          <span id="network-stats" class="state"></span>
+        </p>
+        <p class="hint">
+          A file server is a BBC running file server software from a disc. "Add a file server" adds one with
+          Acorn's Level 1 file server in its drive: start it there with <code>CH."FS"</code> and answer its
+          questions (the stations that may log on, and their directories).
+        </p>
+        <h3>Internet Econet</h3>
+        <p>
+          Join a room on an Internet Econet service, and the stations here can talk to those of other people,
+          in MacBeeb or in a browser.
+        </p>
+        <div class="room-form">
+          <label>Service <input id="room-service" type="url" value="https://econet.acornplayground.org" /></label>
+          <label>Your name <input id="room-display-name" type="text" maxlength="40" placeholder="Shown to others in the room" /></label>
+          <label>Invitation <input id="room-invite" type="text" placeholder="A code, or a link" /></label>
+          <button id="room-join" type="button" disabled>Join</button>
+          <label>New room <input id="room-new-name" type="text" maxlength="60" placeholder="Its name" /></label>
+          <button id="room-create" type="button" disabled>Make a room</button>
+          <button id="room-rejoin" type="button" hidden></button>
+          <button id="room-leave" type="button" hidden>Leave the room</button>
+        </div>
+        <div id="room-status" class="room-status" hidden></div>
+      </details>
 
       <details class="panel" id="debug">
         <summary>Performance</summary>

@@ -203,7 +203,42 @@ label.file input {
   padding: 18px;
 }
 
-canvas#screen {
+.stations {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.station {
+  margin: 0;
+  cursor: pointer;
+}
+
+.station.selected {
+  grid-column: 1 / -1;
+  cursor: default;
+}
+
+.station:not(.selected) .bezel {
+  padding: 6px;
+  border-radius: 8px;
+}
+
+.station figcaption {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.station figcaption button {
+  font-size: 12px;
+  padding: 1px 8px;
+}
+
+.station canvas {
   display: block;
   width: 100%;
   /* PAL pixels: the 736 x 576 frame shown at MacBeeb's aspect. */
@@ -213,8 +248,8 @@ canvas#screen {
   outline: none;
 }
 
-canvas#screen:focus-visible,
-canvas#screen.focused {
+.station canvas:focus-visible,
+.station canvas.focused {
   box-shadow: 0 0 0 2px var(--accent);
 }
 
@@ -260,4 +295,66 @@ footer {
 
 footer a {
   color: inherit;
+}
+
+.meter {
+  display: inline-block;
+  width: 80px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+}
+
+h3 {
+  font-size: 14px;
+  margin: 14px 0 4px;
+}
+
+input[type="number"],
+input[type="text"],
+input[type="url"] {
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+
+input[type="number"] {
+  width: 4.5em;
+}
+
+#room-service {
+  width: 22em;
+}
+
+.room-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.room-status {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.room-status ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+.room-status .invite {
+  font-family: ui-monospace, Menlo, monospace;
+  user-select: all;
 }

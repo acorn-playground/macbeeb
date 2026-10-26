@@ -1,10 +1,14 @@
-import BeebCore
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 // Econet traffic as the room protocol carries it (binary WebSocket
 // messages, version 1): see cloudflare-econet's econet/docs/protocol.md. The
 // test vectors there (protocol/fixtures/traffic.json) are checked against
-// this in EconetTrafficTests.
+// this in EconetTrafficTests. It's in the core so that every gateway, the
+// Mac app's and the WebAssembly module's, speaks it.
 
 public enum EconetTraffic {
     public static let version: UInt8 = 1

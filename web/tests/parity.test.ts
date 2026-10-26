@@ -11,7 +11,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { BeebModule, type BeebMachine, type Model, type DiscFormat, type Reset } from "../src/beeb-wasm.ts";
+import { BeebModule, type BeebMachine, type BeebNetwork, type Model, type DiscFormat, type Reset } from "../src/beeb-wasm.ts";
 import { loadModule, repository } from "./module.ts";
 
 const fixtures = path.join(repository, "Tests/BeebWasmTests/Fixtures");
@@ -37,18 +37,38 @@ class Runner {
   module: BeebModule;
   scenario: any;
   machine: BeebMachine;
+  /** Machines after the first ("on": 1, 2...). */
+  others: BeebMachine[];
+  network: BeebNetwork | null = null;
   twin: BeebMachine | null = null;
   disc: string | null = null;
+  /** Machines making sound, and a hash of all they've made. */
+  audio = new Map<BeebMachine, number>();
 
   constructor(module: BeebModule, scenario: any) {
     this.module = module;
     this.scenario = scenario;
-    this.machine = this.make();
+    const specs = this.specs;
+    this.machine = this.make(specs[0]);
+    this.others = specs.slice(1).map((spec: any) => this.make(spec));
+    if (scenario.network) {
+      this.network = module.createNetwork(scenario.network.clock ?? 200_000);
+      for (const m of [this.machine, ...this.others]) this.network.add(m);
+    }
   }
 
-  make(): BeebMachine {
-    const machine = this.module.createMachine(this.scenario.model as Model);
-    for (const [slot, name] of Object.entries(this.scenario.roms)) machine.loadROM(Number(slot), file(name as string));
+  get specs(): any[] {
+    return this.scenario.machines ?? [this.scenario];
+  }
+
+  on(step: any): BeebMachine {
+    return (step.on ?? 0) === 0 ? this.machine : this.others[step.on - 1];
+  }
+
+  make(spec: any): BeebMachine {
+    const machine = this.module.createMachine(spec.model as Model);
+    for (const [slot, name] of Object.entries(spec.roms)) machine.loadROM(Number(slot), file(name as string));
+    if (spec.station) machine.setEconetStation(spec.station);
     machine.powerOn();
     return machine;
   }
@@ -56,10 +76,20 @@ class Runner {
   run(cycles: number, chunk: number) {
     for (let done = 0; done < cycles; ) {
       const n = Math.min(chunk, cycles - done);
-      assert.equal(this.machine.run(n), n);
-      if (this.twin) assert.equal(this.twin.run(n), n);
+      if (this.network) {
+        assert.ok(this.network.run(n) >= n);
+      } else {
+        assert.equal(this.machine.run(n), n);
+        if (this.twin) assert.equal(this.twin.run(n), n);
+      }
       done += n;
     }
+  }
+
+  release() {
+    this.network?.release();
+    for (const m of [this.machine, ...this.others]) m.release();
+    this.twin?.release();
   }
 
   check(machine: BeebMachine, licensed: boolean): Record {
@@ -74,6 +104,17 @@ class Runner {
     };
     if (licensed) record.text = machine.screenText();
     if (this.disc) record.disc = this.disc;
+    if (this.audio.has(machine)) {
+      // Every sample made so far, hashed as little-endian floats.
+      let hash = this.audio.get(machine)!;
+      for (;;) {
+        const samples = machine.readAudio(4096);
+        for (const byte of new Uint8Array(samples.buffer)) hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
+        if (samples.length < 4096) break;
+      }
+      this.audio.set(machine, hash);
+      record.audio = hash.toString(16).padStart(8, "0");
+    }
     return record;
   }
 
@@ -103,23 +144,26 @@ function runScenario(module: BeebModule, scenario: any): { [key: string]: Record
     for (const [index, step] of scenario.steps.entries()) {
       if (step.run !== undefined) runner.run(step.run, 20_000_000);
       else if (step.runChunks) runner.run(step.runChunks[0], step.runChunks[1]);
-      else if (step.twin) runner.twin = runner.make();
-      else if (step.type !== undefined) runner.machine.type(step.type);
-      else if (step.untilTyped) while (runner.machine.isTyping) runner.run(100_000, 100_000);
-      else if (step.key) runner.machine.setKey(step.key[0], step.key[1] === 1);
+      else if (step.twin) runner.twin = runner.make(runner.specs[0]);
+      else if (step.audio !== undefined) {
+        runner.on(step).startAudio(step.audio);
+        runner.audio.set(runner.on(step), 0x811c9dc5);
+      } else if (step.joystick) runner.on(step).setJoystick(step.joystick[0], step.joystick[1], step.joystick[2], step.joystick[3] === 1);
+      else if (step.type !== undefined) runner.on(step).type(step.type);
+      else if (step.untilTyped) while ([runner.machine, ...runner.others].some((m) => m.isTyping)) runner.run(100_000, 100_000);
+      else if (step.key) runner.on(step).setKey(step.key[0], step.key[1] === 1);
       else if (step.reset !== undefined) runner.machine.reset(step.reset as Reset);
       else if (step.insertDisc) runner.machine.insertDisc(step.insertDisc[0], step.insertDisc[1] as DiscFormat, file(step.insertDisc[2]));
       else if (step.exportDisc) runner.disc = fnv(runner.machine.exportDisc(step.exportDisc[0], step.exportDisc[1] as DiscFormat));
       else if (step.saveRestore) runner.saveRestore(`${scenario.name}/${index}`);
       else if (step.check) {
-        const record = runner.check(runner.machine, licensed);
+        const record = runner.check(runner.on(step), licensed);
         checks[`${scenario.name}/${step.check}`] = record;
         if (runner.twin) assert.deepEqual(runner.check(runner.twin, licensed), record);
       }
     }
   } finally {
-    runner.machine.release();
-    runner.twin?.release();
+    runner.release();
   }
   return checks;
 }

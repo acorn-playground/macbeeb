@@ -4,61 +4,246 @@
     {
       "name": "synthetic",
       "model": 1,
-      "roms": { "-1": "parity.rom" },
+      "roms": {
+        "-1": "parity.rom"
+      },
       "steps": [
-        { "run": 1000000 }, { "check": "early" },
-        { "run": 3000000 }, { "check": "later" },
-        { "saveRestore": true }, { "check": "restored" },
-        { "run": 2000000 }, { "check": "afterRestore" }
+        {
+          "run": 1000000
+        },
+        {
+          "check": "early"
+        },
+        {
+          "run": 3000000
+        },
+        {
+          "check": "later"
+        },
+        {
+          "saveRestore": true
+        },
+        {
+          "check": "restored"
+        },
+        {
+          "run": 2000000
+        },
+        {
+          "check": "afterRestore"
+        }
       ]
     },
     {
       "name": "synthetic-chunked",
       "about": "The same as synthetic, run in odd-sized pieces: how a run is divided mustn't matter.",
       "model": 1,
-      "roms": { "-1": "parity.rom" },
+      "roms": {
+        "-1": "parity.rom"
+      },
       "steps": [
-        { "runChunks": [1000000, 77777] }, { "check": "early", "sameAs": "synthetic/early" },
-        { "runChunks": [3000000, 1234567] }, { "check": "later", "sameAs": "synthetic/later" },
-        { "runChunks": [2000000, 999999] },
-        { "check": "uninterrupted", "sameAs": "synthetic/afterRestore", "fields": ["cycles", "pc", "a", "x", "y", "s", "p", "ram"] }
+        {
+          "runChunks": [
+            1000000,
+            77777
+          ]
+        },
+        {
+          "check": "early",
+          "sameAs": "synthetic/early"
+        },
+        {
+          "runChunks": [
+            3000000,
+            1234567
+          ]
+        },
+        {
+          "check": "later",
+          "sameAs": "synthetic/later"
+        },
+        {
+          "runChunks": [
+            2000000,
+            999999
+          ]
+        },
+        {
+          "check": "uninterrupted",
+          "sameAs": "synthetic/afterRestore",
+          "fields": [
+            "cycles",
+            "pc",
+            "a",
+            "x",
+            "y",
+            "s",
+            "p",
+            "ram"
+          ]
+        }
       ]
     },
     {
       "name": "synthetic-two-machines",
       "about": "Two machines in one module at once, interleaved, each as if alone.",
       "model": 1,
-      "roms": { "-1": "parity.rom" },
+      "roms": {
+        "-1": "parity.rom"
+      },
       "steps": [
-        { "twin": true },
-        { "runChunks": [1000000, 250000] }, { "check": "early", "sameAs": "synthetic/early" }
+        {
+          "twin": true
+        },
+        {
+          "runChunks": [
+            1000000,
+            250000
+          ]
+        },
+        {
+          "check": "early",
+          "sameAs": "synthetic/early"
+        }
       ]
     },
     {
       "name": "modelB-basic",
       "licensed": true,
       "model": 1,
-      "roms": { "-1": "@os12.rom", "15": "@basic2.rom", "14": "@dfs12.rom" },
+      "roms": {
+        "-1": "@os12.rom",
+        "15": "@basic2.rom",
+        "14": "@dfs12.rom"
+      },
       "steps": [
-        { "run": 4000000 }, { "check": "booted" },
-        { "type": "PRINT 2+2\n" }, { "untilTyped": true }, { "run": 200000 }, { "check": "printed" },
-        { "key": [65, 1] }, { "run": 100000 }, { "key": [65, 0] }, { "run": 100000 },
-        { "key": [73, 1] }, { "run": 100000 }, { "key": [73, 0] }, { "run": 300000 }, { "check": "keyed" },
-        { "reset": 1 }, { "run": 2000000 }, { "check": "afterBreak" }
+        {
+          "run": 4000000
+        },
+        {
+          "check": "booted"
+        },
+        {
+          "type": "PRINT 2+2\n"
+        },
+        {
+          "untilTyped": true
+        },
+        {
+          "run": 200000
+        },
+        {
+          "check": "printed"
+        },
+        {
+          "key": [
+            65,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            65,
+            0
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            73,
+            1
+          ]
+        },
+        {
+          "run": 100000
+        },
+        {
+          "key": [
+            73,
+            0
+          ]
+        },
+        {
+          "run": 300000
+        },
+        {
+          "check": "keyed"
+        },
+        {
+          "reset": 1
+        },
+        {
+          "run": 2000000
+        },
+        {
+          "check": "afterBreak"
+        }
       ]
     },
     {
       "name": "modelB-disc",
       "licensed": true,
       "model": 1,
-      "roms": { "-1": "@os12.rom", "15": "@basic2.rom", "14": "@dfs12.rom" },
+      "roms": {
+        "-1": "@os12.rom",
+        "15": "@basic2.rom",
+        "14": "@dfs12.rom"
+      },
       "steps": [
-        { "run": 4000000 },
-        { "insertDisc": [0, 0, "parity.ssd"] },
-        { "reset": 3 }, { "run": 16000000 }, { "check": "ran" },
-        { "exportDisc": [0, 0] }, { "check": "written" },
-        { "saveRestore": true }, { "run": 2000000 }, { "check": "afterRestore" },
-        { "type": "PRINT 6*7\n" }, { "untilTyped": true }, { "run": 200000 }, { "check": "continued" }
+        {
+          "run": 4000000
+        },
+        {
+          "insertDisc": [
+            0,
+            0,
+            "parity.ssd"
+          ]
+        },
+        {
+          "reset": 3
+        },
+        {
+          "run": 16000000
+        },
+        {
+          "check": "ran"
+        },
+        {
+          "exportDisc": [
+            0,
+            0
+          ]
+        },
+        {
+          "check": "written"
+        },
+        {
+          "saveRestore": true
+        },
+        {
+          "run": 2000000
+        },
+        {
+          "check": "afterRestore"
+        },
+        {
+          "type": "PRINT 6*7\n"
+        },
+        {
+          "untilTyped": true
+        },
+        {
+          "run": 200000
+        },
+        {
+          "check": "continued"
+        }
       ]
     },
     {
@@ -66,12 +251,149 @@
       "about": "modelB-disc without the save and restore: the machine must be the same (the TV, which isn't in a state, restarts).",
       "licensed": true,
       "model": 1,
-      "roms": { "-1": "@os12.rom", "15": "@basic2.rom", "14": "@dfs12.rom" },
+      "roms": {
+        "-1": "@os12.rom",
+        "15": "@basic2.rom",
+        "14": "@dfs12.rom"
+      },
       "steps": [
-        { "run": 4000000 },
-        { "insertDisc": [0, 0, "parity.ssd"] },
-        { "reset": 3 }, { "run": 16000000 }, { "run": 2000000 },
-        { "check": "uninterrupted", "sameAs": "modelB-disc/afterRestore", "fields": ["cycles", "pc", "a", "x", "y", "s", "p", "ram", "text"] }
+        {
+          "run": 4000000
+        },
+        {
+          "insertDisc": [
+            0,
+            0,
+            "parity.ssd"
+          ]
+        },
+        {
+          "reset": 3
+        },
+        {
+          "run": 16000000
+        },
+        {
+          "run": 2000000
+        },
+        {
+          "check": "uninterrupted",
+          "sameAs": "modelB-disc/afterRestore",
+          "fields": [
+            "cycles",
+            "pc",
+            "a",
+            "x",
+            "y",
+            "s",
+            "p",
+            "ram",
+            "text"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "modelB-sound-and-joystick",
+      "licensed": true,
+      "model": 1,
+      "roms": {
+        "-1": "@os12.rom",
+        "15": "@basic2.rom",
+        "14": "@dfs12.rom"
+      },
+      "steps": [
+        {
+          "audio": 48000
+        },
+        {
+          "run": 4000000
+        },
+        {
+          "joystick": [
+            0,
+            1.0,
+            -0.5,
+            1
+          ]
+        },
+        {
+          "type": "SOUND 1,-15,100,20:SOUND &10,-10,4,10\nPRINT ADVAL(1);\" \";ADVAL(2);\" \";ADVAL(0) AND 3\n"
+        },
+        {
+          "untilTyped": true
+        },
+        {
+          "run": 2000000
+        },
+        {
+          "check": "played"
+        }
+      ]
+    },
+    {
+      "name": "econet-two-stations",
+      "about": "Two Model Bs with DNFS on one line (as Tests/BeebCoreTests/EconetTests): station 2 opens a receive block, station 1 sends it HELLO ECONET.",
+      "licensed": true,
+      "network": {
+        "clock": 200000
+      },
+      "machines": [
+        {
+          "model": 1,
+          "roms": {
+            "-1": "@os12.rom",
+            "15": "@basic2.rom",
+            "14": "@dnfs.rom"
+          },
+          "station": 1
+        },
+        {
+          "model": 1,
+          "roms": {
+            "-1": "@os12.rom",
+            "15": "@basic2.rom",
+            "14": "@dnfs.rom"
+          },
+          "station": 2
+        }
+      ],
+      "steps": [
+        {
+          "run": 3000000
+        },
+        {
+          "type": "10 DIM B% 80,C% 20\n20 C%?0=0:C%?1=&7F:C%?2=&77:C%?3=0:C%?4=0:C%!5=B%:C%!9=B%+80\n30 X%=C%:Y%=C% DIV 256:A%=&11:CALL &FFF1\n40 N%=C%?0:PRINT \"OPEN \";N%\n50 REPEAT:A%=&33:X%=N%:R%=USR(&FFF4):UNTIL (R% AND &8000)<>0\n60 C%?0=N%:X%=C%:Y%=C% DIV 256:A%=&11:CALL &FFF1\n70 PRINT \"FROM \";C%?3;\" GOT \";$B%\nRUN\n",
+          "on": 1
+        },
+        {
+          "untilTyped": true
+        },
+        {
+          "run": 1000000
+        },
+        {
+          "check": "listening",
+          "on": 1
+        },
+        {
+          "type": "10 DIM B% 80,C% 20\n20 $B%=\"HELLO ECONET\"\n30 C%?0=&80:C%?1=&77:C%?2=2:C%?3=0:C%!4=B%:C%!8=B%+LEN$B%+1\n40 X%=C%:Y%=C% DIV 256:A%=&10:CALL &FFF1\n50 REPEAT:A%=&32:R%=USR(&FFF4):UNTIL (R% AND &8000)=0\n60 PRINT \"RESULT \";(R% AND &FF00) DIV 256;\" \";C%?0\nRUN\n",
+          "on": 0
+        },
+        {
+          "untilTyped": true
+        },
+        {
+          "run": 4000000
+        },
+        {
+          "check": "sent",
+          "on": 0
+        },
+        {
+          "check": "received",
+          "on": 1
+        }
       ]
     },
     {
@@ -79,12 +401,34 @@
       "licensed": true,
       "model": 3,
       "roms": {
-        "-1": "@mos320-mos.rom", "15": "@mos320-terminal.rom", "14": "@mos320-view.rom", "13": "@mos320-adfs.rom",
-        "12": "@mos320-basic4.rom", "11": "@mos320-edit.rom", "10": "@mos320-viewsht.rom", "9": "@mos320-dfs.rom"
+        "-1": "@mos320-mos.rom",
+        "15": "@mos320-terminal.rom",
+        "14": "@mos320-view.rom",
+        "13": "@mos320-adfs.rom",
+        "12": "@mos320-basic4.rom",
+        "11": "@mos320-edit.rom",
+        "10": "@mos320-viewsht.rom",
+        "9": "@mos320-dfs.rom"
       },
       "steps": [
-        { "run": 6000000 }, { "check": "booted" },
-        { "type": "PRINT 2+2\n" }, { "untilTyped": true }, { "run": 200000 }, { "check": "printed" }
+        {
+          "run": 6000000
+        },
+        {
+          "check": "booted"
+        },
+        {
+          "type": "PRINT 2+2\n"
+        },
+        {
+          "untilTyped": true
+        },
+        {
+          "run": 200000
+        },
+        {
+          "check": "printed"
+        }
       ]
     }
   ]

@@ -8,7 +8,7 @@ import { Wasi, WasiExit, type WasiOptions } from "./wasi.ts";
 export { WasiExit };
 
 /** The ABI version this wrapper speaks. */
-export const ABI_VERSION = 1;
+export const ABI_VERSION = 2;
 
 export const Model = { modelA: 0, modelB: 1, bPlus: 2, master128: 3, masterCompact: 4 } as const;
 export type Model = (typeof Model)[keyof typeof Model];
@@ -161,6 +161,11 @@ export class BeebModule {
     return new BeebMachine(this, this.check(this.call("beeb_create", model)));
   }
 
+  /** An Econet line, with a clock of `clockRate` bits a second (0: none). */
+  createNetwork(clockRate = 200_000): BeebNetwork {
+    return new BeebNetwork(this, this.check(this.call("beeb_network_create", clockRate)));
+  }
+
   readonly videoWidth = 736;
   readonly videoHeight = 576;
 }
@@ -202,6 +207,29 @@ export class BeebMachine {
 
   reset(kind: Reset) {
     this.call("beeb_reset", kind);
+  }
+
+  /** Makes sound at `rate` samples a second for readAudio (0 stops it). */
+  startAudio(rate: number) {
+    this.call("beeb_audio_start", rate);
+  }
+
+  /** The samples made since the last call (mono, -1 to 1), up to `max`. */
+  readAudio(max = 8192): Float32Array {
+    return this.withScratch(max * 4, (p) => {
+      const n = this.call("beeb_audio_read", p, max);
+      return new Float32Array(this.module.memory.buffer.slice(p, p + n * 4));
+    });
+  }
+
+  /** Joystick 0 or 1: x and y from -1 (left, down) to 1 (right, up). */
+  setJoystick(index: 0 | 1, x: number, y: number, fire: boolean) {
+    this.call("beeb_set_joystick", index, x, y, fire ? 1 : 0);
+  }
+
+  /** An Econet module with this station number (1-254), or none (0). Power cycles a machine that's on. */
+  setEconetStation(station: number) {
+    this.call("beeb_set_econet_station", station);
   }
 
   /** Runs up to `cycles` 2MHz cycles (at most 20,000,000); returns how many ran. */
@@ -307,6 +335,111 @@ export class BeebMachine {
       return body(pointer);
     } finally {
       this.module.call("beeb_free", pointer);
+    }
+  }
+}
+
+export interface GatewayStatus {
+  framesOut: number;
+  framesIn: number;
+  broadcastsOut: number;
+  broadcastsIn: number;
+  noReplies: number;
+  refusedBusy: number;
+  timeouts: number;
+  /** 0 idle, 1 holding the line for a station elsewhere, 2 waiting for a local station. */
+  activity: 0 | 1 | 2;
+}
+
+/**
+ * An Econet line in the module, with machines plugged in (run together, in
+ * lockstep) and optionally an Internet gateway, which speaks the room
+ * protocol's binary messages.
+ */
+export class BeebNetwork {
+  readonly module: BeebModule;
+  readonly handle: number;
+  private released = false;
+
+  constructor(module: BeebModule, handle: number) {
+    this.module = module;
+    this.handle = handle;
+  }
+
+  private call(name: string, ...args: number[]): number {
+    if (this.released) throw new BeebError(StatusCode.invalidHandle, "the network has been released");
+    return this.module.check(this.module.call(name, this.handle, ...args));
+  }
+
+  release() {
+    if (this.released) return;
+    this.call("beeb_network_release");
+    this.released = true;
+  }
+
+  add(machine: BeebMachine) {
+    this.call("beeb_network_add", machine.handle);
+  }
+
+  remove(machine: BeebMachine) {
+    this.call("beeb_network_remove", machine.handle);
+  }
+
+  /** Runs every machine `cycles` (rounded up to 32-cycle quanta); returns the cycles run. */
+  run(cycles: number): number {
+    return this.call("beeb_network_run", cycles);
+  }
+
+  get frames(): number {
+    return this.call("beeb_network_count", 0);
+  }
+
+  get collisions(): number {
+    return this.call("beeb_network_count", 1);
+  }
+
+  attachGateway(on = true) {
+    this.call("beeb_gateway_attach", on ? 1 : 0);
+  }
+
+  /** The stations elsewhere the gateway answers for. */
+  setRemoteStations(stations: number[]) {
+    this.module.withBytes(new Uint8Array(stations), (p, n) => this.call("beeb_gateway_set_remote", p, n));
+  }
+
+  /** The local stations shared with the room (null: all). */
+  setSharedStations(stations: number[] | null) {
+    if (stations === null) this.call("beeb_gateway_set_shared", 0, 0, 1);
+    else this.module.withBytes(new Uint8Array(stations), (p, n) => this.call("beeb_gateway_set_shared", p, n, 0));
+  }
+
+  /** A binary message from the room. */
+  receive(message: Uint8Array) {
+    this.module.withBytes(message, (p, n) => this.call("beeb_gateway_receive", p, n));
+  }
+
+  /** The gateway's messages for the room since the last call. */
+  take(): Uint8Array[] {
+    const n = this.call("beeb_gateway_take");
+    if (n === 0) return [];
+    const buffer = this.module.result(n);
+    const messages: Uint8Array[] = [];
+    for (let p = 0; p + 4 <= buffer.length; ) {
+      const length = ((buffer[p] << 24) | (buffer[p + 1] << 16) | (buffer[p + 2] << 8) | buffer[p + 3]) >>> 0;
+      messages.push(buffer.slice(p + 4, p + 4 + length));
+      p += 4 + length;
+    }
+    return messages;
+  }
+
+  get gatewayStatus(): GatewayStatus {
+    const p = this.module.call("beeb_alloc", 28);
+    try {
+      const activity = this.call("beeb_gateway_status", p) as 0 | 1 | 2;
+      const v = new Int32Array(this.module.memory.buffer.slice(p, p + 28));
+      return { framesOut: v[0], framesIn: v[1], broadcastsOut: v[2], broadcastsIn: v[3], noReplies: v[4], refusedBusy: v[5], timeouts: v[6], activity };
+    } finally {
+      this.module.call("beeb_free", p);
     }
   }
 }

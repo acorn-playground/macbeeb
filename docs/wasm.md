@@ -66,14 +66,16 @@ Each folder has its own `package-lock.json`.
 make wasm
 cd web && npm ci
 npx vite                          # http://localhost:5173
-MACBEEB_DEV_ROMS=1 npx vite       # also offers MacBeeb's own ROMs (development only)
-npx vite build                    # dist/: the page, the module, no ROMs
+npx vite build                    # dist/: the page, the module, and MacBeeb's ROMs
 ```
 
 Using it:
 
-1. Choose the ROM images. A Model B needs OS 1.20, BASIC II and DFS 1.20; DFS is optional, but needed for discs. A Master 128 needs all eight parts of MOS 3.20.
-2. Power on, then click the screen and type.
+1. It starts a Model B by itself, with the ROMs MacBeeb bundles (`web/src/bundled.ts` imports them from `Sources/BeebROMs`, as the Mac app does).
+   - The Model B has OS 1.20, BASIC II and DFS 1.20; with Econet on, DNFS 3.60 takes DFS's place (MacBeeb's DFS 1.20 is in fact that DNFS image).
+   - The Master 128 has all eight parts of MOS 3.20, and ANFS 4.25 for Econet.
+   - The ROMs panel lets a viewer use their own images in place of any of them.
+2. Click the screen and type.
 
 What it has:
 
@@ -85,11 +87,33 @@ What it has:
   - Boot disc presses Shift-Break.
   - Save disc downloads the disc as it is now, with anything the BBC wrote to it.
 - **Controls:** Break, Ctrl-Break and power cycling; Pause; typing text; and save states (MacBeeb's `.beebstate` format, uncompressed).
+- **Sound:** "Sound off" turns it on (browsers only start sound when asked), with a volume control and a level meter.
+  - It's the core's own sound chip and mixer, as the Mac app plays it, resampled to the browser's rate.
+  - It comes from the selected BBC.
+- **Joysticks:** up to two gamepads are the BBC's analogue joysticks 0 and 1.
+  - The left stick or the D-pad steers, and the face buttons fire. There's a small dead zone.
+  - They go to the selected BBC, and stay as set through power cycles.
+- **Several BBCs:** "Add a BBC" (under Econet) adds another station, with its own screen. Click a screen to select it: the selected one is large, and it gets the keyboard, discs, typing, sound and the joysticks.
+- **Econet:** with Econet on, every BBC has an Econet module, with a station number you choose, and they share one network.
+  - The network runs in lockstep, 32 cycles at a time, as the Mac app's Network Studio runs it, with the line's clock at 200kHz.
+  - "Add a file server" adds a Model B as station 254 with Acorn's Level 1 file server in its drive (the disc Network Studio uses). Start it with `CH."FS"` and answer its questions.
+  - The panel counts the frames on the line, and collisions.
+- **Internet Econet:** the BBCs can join a room on an Internet Econet service (by default econet.acornplayground.org) and talk to the stations of other people, in MacBeeb or in a browser.
+  - Make a room (the page then shows its invitation code and link), or join one with a code or link.
+  - The room's members and stations are listed, with the round trip.
+  - Your credentials are kept in the browser's local storage, so "Rejoin" takes you back. Leaving forgets them; the host's leaving closes the room.
+  - The service needs to allow browsers (cross-origin requests): see "Internet Econet" below.
 - **Performance:** the panel shows the BBC's speed, cycles requested and run, fields, frames drawn, batch times, dropped time and memory.
 
 How it runs:
 
-- **The worker:** a Web Worker (`beeb-worker.ts`) owns the module and the clock, and the page only handles the UI. The worker draws to an OffscreenCanvas; without one, it sends the page the pixels.
+- **The worker:** a Web Worker (`beeb-worker.ts`) owns the module and the clock, and the page only handles the UI.
+  - It runs every station: alone, or with Econet on, together on the module's network.
+  - It draws each station to its own OffscreenCanvas; without one, it sends the page the pixels.
+- **Sound:** the worker takes the selected station's samples after each batch and posts them through a MessagePort straight to an AudioWorklet (`audio-worklet.ts`), not through the page.
+  - The worklet plays from a queue kept between about 40ms and 150ms (beyond that, the oldest is dropped), since the worker's clock and the sound card's differ slightly.
+  - When the queue runs dry, it fades out rather than clicking.
+- **Rooms:** the room client (`room.ts`, after BeebNetwork's `RoomAPI` and `RoomConnection`) runs in the worker. The room's binary messages go to and from the network's gateway with no stop in the page.
 - **Pacing:**
   - Every 5ms, the worker runs the machine for the real time that's passed: 2,000 cycles a millisecond, measured by `performance.now()`.
   - After a stall it catches up at most 100ms and drops the rest, so returning to the tab doesn't race through a backlog.
@@ -99,11 +123,11 @@ How it runs:
   - A release comes at least 40ms of BBC time after its press, and a press 20ms after the release before it, so the OS's keyboard scan sees every key, however fast the host sends them. Nothing is dropped.
   - When the screen loses focus, held keys are released.
 - **Generations:** each power cycle or restored state starts a new generation, so keys and frames from the old machine are dropped.
-- **ROMs:** they stay in the browser, in IndexedDB only if you tick "Remember". They're never uploaded or bundled.
+- **ROMs:** MacBeeb's are part of the build (12 ROMs and the Level 1 file server disc, about 400K). A viewer's own stay in their browser (in IndexedDB only if they tick "Remember") and are never uploaded.
 
 ## The ABI
 
-Version 1, in `Sources/BeebWasm/Exports.swift`, wrapped by `web/src/beeb-wasm.ts`.
+Version 2, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift` and `NetworkExports.swift`), wrapped by `web/src/beeb-wasm.ts`. Version 2 added sound, joysticks and Econet to version 1, which is otherwise unchanged.
 
 ### Conventions
 
@@ -137,7 +161,7 @@ Version 1, in `Sources/BeebWasm/Exports.swift`, wrapped by `web/src/beeb-wasm.ts
 
 | Function | |
 |---|---|
-| `beeb_abi_version()` | 1 |
+| `beeb_abi_version()` | 2 |
 | `beeb_create(model)` | A machine, with no ROMs yet. Models: 0 Model A, 1 Model B, 2 B+, 3 Master 128, 4 Master Compact. Returns the handle. |
 | `beeb_load_rom(h, slot, p, n)` | Slot -1 is the OS (16K); 0-15 are sideways banks. A machine that's on is power cycled. |
 | `beeb_set_rtc(h, yy, mm, dd, dow, h, m, s)` | The Master's clock at power on. The default is 2000-01-01 00:00:00, so runs repeat. |
@@ -156,6 +180,28 @@ Version 1, in `Sources/BeebWasm/Exports.swift`, wrapped by `web/src/beeb-wasm.ts
 | `beeb_screen_text(h)` | BeebCore's `screenText()`: UTF-8 lines. |
 | `beeb_save_state(h)`, `beeb_restore_state(h, p, n)` | The whole machine. A failed restore leaves the machine as it was. |
 | `beeb_release(h)`, `beeb_machine_count()` | |
+| `beeb_audio_start(h, rate)`, `beeb_audio_read(h, out, n)` | Mono float samples at `rate` (8,000-192,000; 0 stops it), from the core's mixer. Samples not read within two seconds are dropped. |
+| `beeb_set_joystick(h, i, x, y, fire)` | Joystick 0 or 1: x and y from -1 (left, down) to 1 (right, up). It stays as set through power cycles. On a Master Compact, joystick 0 is its digital one. |
+| `beeb_set_econet_station(h, n)` | Fits an Econet module as station n (1-254), or takes it out (0). A machine that's on is power cycled. |
+
+### Networks
+
+Machines and networks share one numbering of handles.
+
+| Function | |
+|---|---|
+| `beeb_network_create(clock)` | An Econet line, with a clock of `clock` bits a second (200,000 is usual; 0 is none). At most 8. |
+| `beeb_network_add(n, h)`, `beeb_network_remove(n, h)` | Plugs a machine in, or takes it out. A machine's module, if it has one, joins the line. |
+| `beeb_network_run(n, cycles)` | Runs every machine together, in quanta of the line's delay (32 cycles): each runs a quantum in turn, then the line delivers what they sent, as `NetworkHost` does. Returns the cycles run, a whole number of quanta. A machine on a network refuses `beeb_run`. |
+| `beeb_network_count(n, which)` | 0: frames seen on the line. 1: byte-times spoiled by collisions. |
+| `beeb_network_release(n)` | The machines carry on alone. |
+| `beeb_gateway_attach(n, on)` | Puts BeebCore's Internet gateway (`EconetGateway`) on the line, or takes it off. |
+| `beeb_gateway_set_remote(n, p, k)`, `beeb_gateway_set_shared(n, p, k, all)` | The stations elsewhere it answers for, and the local ones shared with the room (`all` 1: every one). |
+| `beeb_gateway_receive(n, p, k)` | A binary message from the room: the protocol's wire format, version 1 (`EconetTraffic`, now in BeebCore so that both gateways share it). |
+| `beeb_gateway_take(n)` | The gateway's messages for the room, in the result buffer, each a 4-byte big-endian length then the message. |
+| `beeb_gateway_status(n, out)` | Seven counters (frames and broadcasts out and in, no replies, refused as busy, timeouts), and it returns its activity: 0 idle, 1 holding the line, 2 waiting on a local station. |
+
+The host carries a room's messages. The gateway holds the line while a frame is answered elsewhere, for at most two seconds of BBC time, so a networked machine with a gateway must run in real time, as the browser runs it, not as fast as it can.
 
 ### Video
 
@@ -190,13 +236,16 @@ A state is MacBeeb's `.beebstate` format: the configuration with its ROMs, every
 | The module alone | `cd web && node --test tests/*.test.ts` | |
 | Browser end to end | `make web-test`, or `PLAYWRIGHT_CHANNEL=chrome npx playwright test` to use the installed Chrome | Playwright's Chromium, or Chrome |
 | 32-bit soak (37 minutes of BBC time) | `MACBEEB_SOAK=1 node --test tests/soak.test.ts` in `web/` | |
+| Internet Econet: two module instances in a room, through `room.ts` | `MACBEEB_ECONET_SERVICE=http://127.0.0.1:8787 node --test tests/room.test.ts` in `web/` | an Internet Econet service (in cloudflare-econet: `npm run dev`) |
+| Internet Econet: the browser version and MacBeeb in one room | `MACBEEB_MIXED=1 MACBEEB_ECONET_SERVICE=... node --test tests/room-mixed.test.ts` in `web/` (it runs the native side with `swift test`) | the same |
+| Internet Econet: two browser pages in a room | `MACBEEB_ECONET_SERVICE=... npx playwright test tests/peripherals.spec.ts` | the same |
 | Cloudflare proof | `make cloudflare-smoke` | `npm ci` in `cloudflare/` |
 | Speed | `node web/bench.ts` and `swift run -c release beeb-bench` | |
 
 About the parity tests:
 
-- `Tests/BeebWasmTests/Fixtures/scenarios.json` describes the steps: running in various slices, typing, keys, resets, a disc that's booted and written to, save states restored into new machines, and two machines at once.
-- The native test and the module both run the scenarios, and must reach the checkpoints in `expected.json`: cycles, registers, RAM, frame hash, frame count, lights, screen text and disc image.
+- `Tests/BeebWasmTests/Fixtures/scenarios.json` describes the steps: running in various slices, typing, keys, resets, a disc that's booted and written to, save states restored into new machines, two machines at once, sound and a joystick, and two DNFS stations on an Econet sending a message from one to the other.
+- The native test and the module both run the scenarios, and must reach the checkpoints in `expected.json`: cycles, registers, RAM, frame hash, frame count, lights, screen text, disc image and (where a machine makes sound) a hash of every sample.
 - `MACBEEB_UPDATE_PARITY=1 swift test --filter BeebWasmTests` re-records `expected.json` after an intended change to the emulation; then the module must agree with it.
 - **ROMs:**
   - The "synthetic" scenarios need no Acorn ROMs. They use `parity-rom.asm`, a 16K ROM of our own, which exercises the CPU, decimal mode, a VIA timer interrupt, and the CRTC and ULA in MODE 1. Its disc, `parity-disc.asm`, is ours too.
@@ -210,8 +259,8 @@ Measured on 26 October 2026: an Apple M4 Max (Mac16,5) with macOS 27.0.1, Swift 
 ### Correctness
 
 - **Parity:** every checkpoint matches between native and WebAssembly. That covers:
-  - 19 checkpoints;
-  - 7 scenarios, among them Model B BASIC, disc boot and write, save and restore, and a Master 128;
+  - 23 checkpoints;
+  - 9 scenarios, among them Model B BASIC, disc boot and write, save and restore, a Master 128, sound (every sample) and a joystick read by `ADVAL`, and a message over Econet between two stations;
   - save states crossing native to WebAssembly and back.
 - **Save states:** a restored machine equals an uninterrupted one (CPU, cycles, RAM and screen).
 - **Bad input:** every kind of bad input is refused without a trap.
@@ -221,6 +270,14 @@ Measured on 26 October 2026: an Apple M4 Max (Mac16,5) with macOS 27.0.1, Swift 
   - A disc boots, runs and writes, and saving it gives back the disc with the new file.
   - Pause, Break and power cycling work, and a held key is released on blur.
   - A Model B can be swapped for a Master 128.
+  - Sound reaches the AudioWorklet (its level is measured), in a steady stream at the browser's rate.
+  - A gamepad (faked in the page) is read by BASIC's `ADVAL`, with its fire button.
+  - Two stations in one page send a message over their Econet.
+  - Two browser pages, each a station, make and join a room on a local copy of the Internet Econet service and send a message through it.
+- **Internet Econet:**
+  - Two module instances in Node talk through a room on a local copy of the service.
+  - The browser version's station sends to MacBeeb's own (the native build, running its Internet Econet client) through a room.
+  - MacBeeb's own room tests still pass against the same service.
 
 ### Performance
 
@@ -235,6 +292,7 @@ The workload is beeb-bench's: a Model B with its TV, running a busy MODE 2 BASIC
 | Start-up | module compile 14ms and instantiate 3ms (Node); create and power on 4ms; fetch and instantiate in the page 36ms |
 | Memory | linear memory 9.3MB with one machine, 15.8MB with two |
 | Save state | 184K for a Model B (1.2MB with a disc in, since the disc's tracks are included); 24ms to save, 80ms to restore into a new machine |
+| An Econet network in lockstep (Node; Model Bs with DNFS) | one machine 10.6× real time (alone it's 11.1×), two 5.5×, three 3.7×, four 2.8× |
 
 A browser runs a Model B in real time using about a quarter of one core. There was no need to optimise.
 
@@ -242,7 +300,9 @@ A browser runs a Model B in real time using about a quarter of one core. There w
 
 - **What the browser offers:**
   - Models B and Master 128. The core has every model and co-processor, but the page offers only those two, and their ROM sets.
-  - No sound, joysticks, mouse, tape, printer or Econet in the page, and no debugger or MCP server.
+  - No mouse, tape or printer in the page, and no debugger or MCP server.
+  - No disc drive sounds (the Mac app's recordings are in BeebROMs, which the module doesn't include).
+  - Only the selected BBC is heard, and only it takes the joysticks.
 - **The keyboard:**
   - In layout mode, symbols come from your layout, but keys with no BBC equivalent are ignored.
   - Some browser shortcuts can't be captured (Cmd keys, F11).
@@ -251,15 +311,22 @@ A browser runs a Model B in real time using about a quarter of one core. There w
 - **States from the Mac app:** compressed with LZFSE, they can't be read by the WebAssembly build. Save a portable one from the ABI (or `SaveStateFile.portableData()`).
 - **Size:** the module is 14.5MB (4.2MB gzipped). It could be smaller with Binaryen's `wasm-opt`, which isn't used yet, or with Embedded Swift, which would mean a rewrite.
 
-## Econet later
+## Internet Econet
 
-BeebCore emulates Econet down to the ADLC and its timing, and nothing here changes that. A WebAssembly host that wants to put a machine on a network would need:
+BeebCore emulates Econet down to the ADLC and its timing, and the WebAssembly build uses all of it.
 
-- **Incoming frames:** delivered as explicit, cycle-stamped events. MacBeeb's `EconetBus` already treats a machine's network port that way, with clock-stamped symbols delivered between quanta.
-- **Outgoing frames:** collected by the host after each `beeb_run`, as `EconetGateway` does natively.
-- **Machines that keep pace:** they must agree on time. Native MacBeeb runs a network in lockstep, 32 cycles at a time. Machines on different hosts, run on demand at different speeds, can't simply exchange packets: they'd need a virtual-clock coordinator, or an acceptance that the network isn't cycle-exact.
+**On one network**, the browser's stations run in lockstep on one line, as Network Studio's machines do natively.
 
-The ABI has no Econet functions yet. Adding them means exporting the existing bus port as functions, not a new network model.
+**Between networks**, a room on an Internet Econet service (cloudflare-econet) carries the frames, as it does between Macs:
+
+- the gateway (BeebCore's `EconetGateway`) on each line stands in for the stations elsewhere;
+- the room's binary messages pass between gateways untouched, so a browser's station and a Mac's are the same to each other.
+
+The gateway never answers for a station elsewhere itself. It holds the line, with flags, while a frame crosses the Internet and the real answer comes back, so each side must run in real time.
+
+The service needs to let browsers call it: cross-origin requests (CORS) from any origin. That's safe there, because its credentials are bearer tokens in headers and it uses no cookies. cloudflare-econet's `browser-clients` branch adds it, with a test and a note in its `docs/security.md`. Until a service has it, the page can't join its rooms, though the Mac app can.
+
+The client sends the app name "MacBeeb Web", so people in a room see who's in a browser.
 
 ## Troubleshooting
 

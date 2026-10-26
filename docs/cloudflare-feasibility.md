@@ -71,7 +71,7 @@ Linking them would need one of these:
 - a coordinator that hands out virtual time, so that the machines advance together, and frames go between them stamped with the cycle they arrive at;
 - or a looser network, with each frame delivered at the receiver's current time, which works for file serving but isn't cycle-exact.
 
-The [WebAssembly notes](wasm.md#econet-later) describe the shape of the interface that either would use. None of it is built yet.
+The browser version now uses Internet Econet rooms between browsers and Macs (see [the WebAssembly notes](wasm.md#internet-econet)): each browser runs its own machines in real time, and the room carries their frames. Machines run on demand inside Durable Objects would still need one of the above.
 
 ## Before anything is deployed
 

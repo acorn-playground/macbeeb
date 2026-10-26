@@ -52,7 +52,7 @@ wasm-test: wasm
 	scripts/test-wasm.sh
 
 web-dev: wasm
-	cd web && MACBEEB_DEV_ROMS=1 npx vite
+	cd web && npx vite
 
 web-test: wasm
 	cd web && npx tsc --noEmit && npx playwright test

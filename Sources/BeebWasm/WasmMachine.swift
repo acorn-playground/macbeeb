@@ -20,6 +20,15 @@ final class WasmMachine {
     /// repeat exactly; otherwise 2000-01-01 00:00:00, a Saturday).
     var rtc = RTCTime(year: 0, month: 1, day: 1, dayOfWeek: 7, hours: 0, minutes: 0, seconds: 0)
 
+    /// Sound, when the host's asked for it: the samples the machine makes, at
+    /// the host's rate, waiting for it to take them.
+    private(set) var audio: (rate: Int, ring: SampleRing)?
+    /// The joysticks as the host last set them (they stay plugged in
+    /// through a power cycle).
+    var joysticks: [(x: Double, y: Double, fire: Bool)] = [(0, 0, false), (0, 0, false)]
+    /// The network it's on, if it is.
+    weak var network: WasmNetwork?
+
     /// The last frame as RGBA8, converted when it's asked for.
     let rgba: UnsafeMutablePointer<UInt32>
     private var rgbaFrame = -1
@@ -58,8 +67,25 @@ final class WasmMachine {
 
     private func install(_ new: BBCMicro) {
         machine?.tv = nil
+        machine?.detachAudio()
         new.tv = tv
+        if let audio { new.attachAudio(sampleRate: audio.rate, ring: audio.ring) }
+        for (index, stick) in joysticks.enumerated() {
+            new.setJoystick(index, x: stick.x, y: stick.y, fire: stick.fire)
+        }
         machine = new
+    }
+
+    /// Starts (or, with nil, stops) making sound at `rate` samples a second.
+    func setAudio(rate: Int?) {
+        machine?.detachAudio()
+        guard let rate else {
+            audio = nil
+            return
+        }
+        // Two seconds' worth: the host takes them far more often.
+        audio = (rate, SampleRing(capacity: rate * 2))
+        machine?.attachAudio(sampleRate: rate, ring: audio!.ring)
     }
 
     /// The last complete frame, RGBA8 (bytes R, G, B, 255), top row first.

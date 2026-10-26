@@ -37,25 +37,47 @@ struct ParityTests {
         return String(format: "%08x", hash)
     }
 
-    /// One machine, made and driven only through the exported functions.
+    /// The scenario's machines (one, or with "machines" several, on an
+    /// Econet with "network"), made and driven only through the exported
+    /// functions.
     final class Runner {
         var handle: Int32 = 0
+        /// Machines after the first ("on": 1, 2...).
+        var others: [Int32] = []
+        var network: Int32?
         var twin: Int32?
         let scenario: [String: Any]
         var disc: String?
+        /// Machines making sound, and a hash of all they've made.
+        var audio: [Int32: UInt32] = [:]
+
+        var specs: [[String: Any]] { scenario["machines"] as? [[String: Any]] ?? [scenario] }
 
         init(_ scenario: [String: Any]) throws {
             self.scenario = scenario
-            handle = try make()
+            handle = try make(specs[0])
+            others = try specs.dropFirst().map(make)
+            if let spec = scenario["network"] as? [String: Any] {
+                let net = beeb_network_create(Int32(spec["clock"] as? Int ?? 200_000))
+                #expect(net > 0)
+                for machine in [handle] + others { #expect(beeb_network_add(net, machine) == 0) }
+                network = net
+            }
         }
 
-        func make() throws -> Int32 {
-            let handle = beeb_create(Int32(scenario["model"] as! Int))
+        func machine(_ step: [String: Any]) -> Int32 {
+            let index = step["on"] as? Int ?? 0
+            return index == 0 ? handle : others[index - 1]
+        }
+
+        func make(_ spec: [String: Any]) throws -> Int32 {
+            let handle = beeb_create(Int32(spec["model"] as! Int))
             #expect(handle > 0)
-            for (slot, name) in scenario["roms"] as! [String: String] {
+            for (slot, name) in spec["roms"] as! [String: String] {
                 let rom = try file(name)
                 #expect(rom.withUnsafeBytes { beeb_load_rom(handle, Int32(slot)!, $0.baseAddress, Int32($0.count)) } == 0)
             }
+            if let station = spec["station"] as? Int { #expect(beeb_set_econet_station(handle, Int32(station)) == 0) }
             #expect(beeb_power_on(handle) == 0)
             return handle
         }
@@ -64,10 +86,19 @@ struct ParityTests {
             var done = 0
             while done < cycles {
                 let n = Int32(min(chunk, cycles - done))
-                #expect(beeb_run(handle, n) == n)
-                if let twin { #expect(beeb_run(twin, n) == n) }
+                if let network {
+                    #expect(beeb_network_run(network, n) >= n)
+                } else {
+                    #expect(beeb_run(handle, n) == n)
+                    if let twin { #expect(beeb_run(twin, n) == n) }
+                }
                 done += Int(n)
             }
+        }
+
+        func release() {
+            if let network { _ = beeb_network_release(network) }
+            for machine in [handle] + others + (twin.map { [$0] } ?? []) { _ = beeb_release(machine) }
         }
 
         func check(_ handle: Int32, licensed: Bool) -> [String: Any] {
@@ -89,6 +120,20 @@ struct ParityTests {
                 record["text"] = String(decoding: UnsafeRawBufferPointer(start: beeb_result_ptr(), count: Int(n)), as: UTF8.self)
             }
             if let disc { record["disc"] = disc }
+            if audio[handle] != nil {
+                // Every sample made so far, hashed as little-endian floats.
+                var samples = [Float](repeating: 0, count: 4096)
+                var hash = audio[handle]!
+                while true {
+                    let n = Int(beeb_audio_read(handle, &samples, Int32(samples.count)))
+                    for sample in samples.prefix(n) {
+                        for byte in withUnsafeBytes(of: sample.bitPattern.littleEndian, Array.init) { hash = (hash ^ UInt32(byte)) &* 0x0100_0193 }
+                    }
+                    if n < samples.count { break }
+                }
+                audio[handle] = hash
+                record["audio"] = String(format: "%08x", hash)
+            }
             return record
         }
 
@@ -117,25 +162,29 @@ struct ParityTests {
         let name = scenario["name"] as! String
         let licensed = scenario["licensed"] as? Bool ?? false
         let runner = try Runner(scenario)
-        defer {
-            _ = beeb_release(runner.handle)
-            if let twin = runner.twin { _ = beeb_release(twin) }
-        }
+        defer { runner.release() }
         var checks: [String: [String: Any]] = [:]
         for (index, step) in (scenario["steps"] as! [[String: Any]]).enumerated() {
             if let cycles = step["run"] as? Int {
                 runner.run(cycles, chunk: Int(Limits.runCycles))
             } else if let chunks = step["runChunks"] as? [Int] {
                 runner.run(chunks[0], chunk: chunks[1])
+            } else if let rate = step["audio"] as? Int {
+                #expect(beeb_audio_start(runner.machine(step), Int32(rate)) == 0)
+                runner.audio[runner.machine(step)] = 0x811C_9DC5
+            } else if let stick = step["joystick"] as? [Double] {
+                #expect(beeb_set_joystick(runner.machine(step), Int32(stick[0]), stick[1], stick[2], Int32(stick[3])) == 0)
             } else if step["twin"] != nil {
-                runner.twin = try runner.make()
+                runner.twin = try runner.make(runner.specs[0])
             } else if let text = step["type"] as? String {
                 let bytes = Array(text.utf8)
-                #expect(bytes.withUnsafeBytes { beeb_type(runner.handle, $0.baseAddress, Int32($0.count)) } == 0)
+                #expect(bytes.withUnsafeBytes { beeb_type(runner.machine(step), $0.baseAddress, Int32($0.count)) } == 0)
             } else if step["untilTyped"] != nil {
-                while beeb_is_typing(runner.handle) == 1 { runner.run(100_000, chunk: 100_000) }
+                while ([runner.handle] + runner.others).contains(where: { beeb_is_typing($0) == 1 }) {
+                    runner.run(100_000, chunk: 100_000)
+                }
             } else if let key = step["key"] as? [Int] {
-                #expect(beeb_set_key(runner.handle, Int32(key[0]), Int32(key[1])) == 0)
+                #expect(beeb_set_key(runner.machine(step), Int32(key[0]), Int32(key[1])) == 0)
             } else if let kind = step["reset"] as? Int {
                 #expect(beeb_reset(runner.handle, Int32(kind)) == 0)
             } else if let insert = step["insertDisc"] as? [Any] {
@@ -150,7 +199,7 @@ struct ParityTests {
             } else if step["saveRestore"] != nil {
                 try runner.saveRestore(point: "\(name)/\(index)")
             } else if let check = step["check"] as? String {
-                let record = runner.check(runner.handle, licensed: licensed)
+                let record = runner.check(runner.machine(step), licensed: licensed)
                 checks["\(name)/\(check)"] = record
                 if let twin = runner.twin {
                     #expect(NSDictionary(dictionary: runner.check(twin, licensed: licensed)) == NSDictionary(dictionary: record))
@@ -195,7 +244,7 @@ struct ParityTests {
     // MARK: The ABI's checks
 
     @Test func rejectsBadInput() throws {
-        #expect(beeb_abi_version() == 1)
+        #expect(beeb_abi_version() == 2)
         #expect(beeb_create(99) == BeebStatus.unsupported.rawValue)
         #expect(beeb_run(12345, 100) == BeebStatus.invalidHandle.rawValue)
         #expect(beeb_release(12345) == BeebStatus.invalidHandle.rawValue)

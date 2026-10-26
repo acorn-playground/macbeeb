@@ -36,7 +36,7 @@ enum BeebStatus: Int32 {
 }
 
 /// The ABI's version: changes when a function changes meaning.
-let beebABIVersion: Int32 = 1
+let beebABIVersion: Int32 = 2
 
 enum Limits {
     static let machines = 16
@@ -48,10 +48,12 @@ enum Limits {
     static let runCycles: Int32 = 20_000_000
 }
 
-private nonisolated(unsafe) var machines: [Int32: WasmMachine] = [:]
-private nonisolated(unsafe) var nextHandle: Int32 = 1
+nonisolated(unsafe) var machines: [Int32: WasmMachine] = [:]
+/// Machines and networks share the numbering, so a handle is one or the
+/// other.
+nonisolated(unsafe) var nextHandle: Int32 = 0
 private nonisolated(unsafe) var errorMessage = ResultBuffer()
-private nonisolated(unsafe) var result = ResultBuffer()
+nonisolated(unsafe) var result = ResultBuffer()
 
 /// Bytes for the host to read: the last result, or the last error's
 /// message.
@@ -71,12 +73,12 @@ struct ResultBuffer {
     }
 }
 
-private func fail(_ status: BeebStatus, _ message: String) -> Int32 {
+func fail(_ status: BeebStatus, _ message: String) -> Int32 {
     errorMessage.set(Array(message.utf8))
     return status.rawValue
 }
 
-private func lookup(_ handle: Int32) -> WasmMachine? {
+func lookup(_ handle: Int32) -> WasmMachine? {
     machines[handle]
 }
 
@@ -97,7 +99,7 @@ private struct Failure: Error {
 }
 
 /// `body` on the powered-on machine, or the error status.
-private func withRunning(_ handle: Int32, _ body: (WasmMachine, BBCMicro) -> Int32) -> Int32 {
+func withRunning(_ handle: Int32, _ body: (WasmMachine, BBCMicro) -> Int32) -> Int32 {
     switch running(handle) {
     case .success(let (m, machine)): body(m, machine)
     case .failure(let f): fail(f.status, f.message)
@@ -105,7 +107,7 @@ private func withRunning(_ handle: Int32, _ body: (WasmMachine, BBCMicro) -> Int
 }
 
 /// Copies `count` bytes from the caller, checking the pointer and size.
-private func bytes(_ pointer: UnsafeRawPointer?, _ count: Int32, limit: Int) -> [UInt8]? {
+func bytes(_ pointer: UnsafeRawPointer?, _ count: Int32, limit: Int) -> [UInt8]? {
     guard count >= 0, Int(count) <= limit, count == 0 || pointer != nil else { return nil }
     guard let pointer, count > 0 else { return [] }
     return [UInt8](UnsafeRawBufferPointer(start: pointer, count: Int(count)))
@@ -162,8 +164,7 @@ public func beeb_machine_count() -> Int32 { Int32(machines.count) }
 public func beeb_create(_ model: Int32) -> Int32 {
     guard models.indices.contains(Int(model)) else { return fail(.unsupported, "no model \(model)") }
     guard machines.count < Limits.machines else { return fail(.limitReached, "at most \(Limits.machines) machines") }
-    let handle = nextHandle
-    nextHandle = nextHandle == Int32.max ? 1 : nextHandle + 1
+    let handle = newHandle()
     machines[handle] = WasmMachine(model: models[Int(model)])
     return handle
 }
@@ -171,8 +172,17 @@ public func beeb_create(_ model: Int32) -> Int32 {
 @_expose(wasm, "beeb_release")
 @_cdecl("beeb_release")
 public func beeb_release(_ handle: Int32) -> Int32 {
-    guard machines.removeValue(forKey: handle) != nil else { return fail(.invalidHandle, "no machine \(handle)") }
+    guard let m = machines.removeValue(forKey: handle) else { return fail(.invalidHandle, "no machine \(handle)") }
+    m.network?.remove(handle)
     return 0
+}
+
+/// A handle for a new machine or network.
+func newHandle() -> Int32 {
+    repeat {
+        nextHandle = nextHandle == Int32.max ? 1 : nextHandle + 1
+    } while machines[nextHandle] != nil || networks[nextHandle] != nil
+    return nextHandle
 }
 
 /// Puts a ROM in the configuration: `slot` -1 for the OS, 0-15 for a
@@ -251,7 +261,11 @@ public func beeb_run(_ handle: Int32, _ cycles: Int32) -> Int32 {
     guard (0...Limits.runCycles).contains(cycles) else {
         return fail(.invalidArgument, "run 0-\(Limits.runCycles) cycles")
     }
-    return withRunning(handle) { _, machine in Int32(machine.run(cycles: Int(cycles))) }
+    return withRunning(handle) { m, machine in
+        // A network's machines run together, by beeb_network_run.
+        guard m.network == nil else { return fail(.invalidArgument, "machine \(handle) is on a network: run the network") }
+        return Int32(machine.run(cycles: Int(cycles)))
+    }
 }
 
 /// 2MHz cycles since power on (exact to 2^53).

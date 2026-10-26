@@ -120,4 +120,28 @@ struct InternetEconetLiveTests {
         #expect(sides[0].machines[0].screenText().contains { $0.hasPrefix("RESULT 0") }, "\(sides[0].screen(0))")
         #expect(Self.run(sides, seconds: 10) { sides[1].screen(0).contains("FROM 1 GOT HELLO ECONET") }, "\(sides[1].screen(0))")
     }
+
+    static let invite = ProcessInfo.processInfo.environment["MACBEEB_ECONET_INVITE"]
+
+    /// In a room someone else made (MACBEEB_ECONET_INVITE: its code), station
+    /// 2 here listens for station 1 elsewhere: the browser version's, when
+    /// web/tests/room-mixed.test.ts runs this.
+    @Test(.enabled(if: service != nil && invite != nil)) func listensForAnotherClient() async throws {
+        let api = RoomAPI(service: Self.service!)
+        let preview = try await api.resolve(code: Self.invite!)
+        let joined = try await api.join(roomId: preview.roomId, code: Self.invite!, displayName: "MacBeeb")
+        let side = EconetRig([(.modelB, 2)])
+        let link = InternetEconetLink(api: api, roomId: preview.roomId,
+                                      credentials: RoomCredentials(participantId: joined.participantId, memberToken: joined.memberToken),
+                                      claims: [StationClaim(station: 2, kind: "BBC Model B", label: "MacBeeb's BBC")], shared: [2])
+        side.bus.attach(device: link.gateway)
+        link.connection.start()
+        defer { link.connection.stop() }
+        #expect(Self.run([side], seconds: 20) { link.gateway.remoteStations.contains(1) })
+        Self.run([side], seconds: 2) { false }
+        side.runProgram(0, econetReceiver)
+        #expect(Self.run([side], seconds: 20) { side.screen(0).contains("OPEN") }, "\(side.screen(0))")
+        #expect(Self.run([side], seconds: 120) { side.screen(0).contains("FROM 1 GOT HELLO ECONET") }, "\(side.screen(0))")
+        print("MacBeeb heard: FROM 1 GOT HELLO ECONET")
+    }
 }

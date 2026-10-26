@@ -2,7 +2,7 @@
 // a convenience, so storage that's unavailable (a private window, blocked
 // site data) just means choosing them again.
 
-type ROMs = Record<string, Map<number, Uint8Array>>;
+type ROMs = Record<string, Map<string, Uint8Array>>;
 
 const DB = "macbeeb-web";
 const STORE = "roms";
@@ -40,9 +40,10 @@ export async function saveROMs(roms: ROMs) {
 
 export async function loadROMs(): Promise<ROMs | null> {
   try {
-    const plain = await transact<Record<string, [number, Uint8Array][]> | undefined>("readonly", (store) => store.get("roms"));
+    // (Slots kept by number before Econet's ROMs came along.)
+    const plain = await transact<Record<string, [string | number, Uint8Array][]> | undefined>("readonly", (store) => store.get("roms"));
     if (!plain) return null;
-    return Object.fromEntries(Object.entries(plain).map(([model, slots]) => [model, new Map(slots)]));
+    return Object.fromEntries(Object.entries(plain).map(([model, slots]) => [model, new Map(slots.map(([k, v]) => [String(k), v]))]));
   } catch {
     return null;
   }
