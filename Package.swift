@@ -15,6 +15,8 @@ let package = Package(
         .executable(name: "macbeeb-mcp", targets: ["macbeeb-mcp"]),
         .executable(name: "MacBeebQuickLook", targets: ["MacBeebQuickLook"]),
         .executable(name: "beeb-bench", targets: ["beeb-bench"]),
+        .library(name: "BeebWasm", targets: ["BeebWasm"]),
+        .executable(name: "BeebWasmModule", targets: ["BeebWasmModule"]),
         .executable(name: "m6502-gen", targets: ["m6502-gen"]),
     ],
     dependencies: [
@@ -87,6 +89,17 @@ let package = Package(
         .executableTarget(name: "m6502-gen", dependencies: ["M6502GenKit"]),
 
         .executableTarget(name: "beeb-bench", dependencies: ["BeebCore", "BeebHost", "BeebROMs"]),
+
+        // WebAssembly: BeebCore behind a flat C ABI (docs/wasm.md), and the
+        // module that exports it, a WASI reactor. scripts/build-wasm.sh
+        // builds it with the Swift SDK for WebAssembly; natively it's an
+        // ordinary library (which the parity tests call) and a stub tool.
+        .target(name: "BeebWasm", dependencies: ["BeebCore"]),
+        .executableTarget(
+            name: "BeebWasmModule",
+            dependencies: ["BeebWasm"],
+            linkerSettings: [.unsafeFlags(["-Xclang-linker", "-mexec-model=reactor"], .when(platforms: [.wasi]))]
+        ),
 
         .testTarget(
             name: "BeebCoreTests",
