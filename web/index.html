@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MacBeeb Web</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>MacBeeb <span>in a browser</span></h1>
+      <p class="tagline">MacBeeb's own BBC Micro emulation, compiled to WebAssembly. Experimental.</p>
+    </header>
+
+    <main>
+      <section id="error" class="error" hidden>
+        <span id="error-text"></span>
+        <button id="error-dismiss" type="button">Dismiss</button>
+      </section>
+
+      <section class="toolbar" aria-label="Machine">
+        <label>Model
+          <select id="model">
+            <option value="modelB">BBC Model B</option>
+            <option value="master128">BBC Master 128</option>
+          </select>
+        </label>
+        <button id="power" type="button" disabled>Power on</button>
+        <button id="break" type="button" disabled title="Break (F12)">Break</button>
+        <button id="ctrl-break" type="button" disabled title="Ctrl-Break: a hard reset">Ctrl-Break</button>
+        <button id="pause" type="button" disabled>Pause</button>
+        <span id="state" class="state">Loading…</span>
+        <span class="lights" aria-label="Lights">
+          <span id="light-caps" class="light" title="Caps Lock">caps</span>
+          <span id="light-shift" class="light" title="Shift Lock">shift</span>
+          <span id="light-drive" class="light" title="Drive">drive</span>
+        </span>
+      </section>
+
+      <details id="roms" class="panel" open>
+        <summary><h2>ROMs</h2></summary>
+        <p>
+          The BBC needs its operating system and language ROMs, which are Acorn's and aren't part of this page.
+          Choose the images from your own copies; they stay in this browser and are never uploaded.
+        </p>
+        <div id="rom-slots" class="rom-slots"></div>
+        <p class="rom-actions">
+          <label><input id="remember-roms" type="checkbox" /> Remember these ROMs in this browser</label>
+          <button id="dev-roms" type="button" hidden>Use MacBeeb's ROMs (local development)</button>
+        </p>
+      </details>
+
+      <section class="screen-wrap">
+        <div class="bezel">
+          <canvas id="screen" width="736" height="576" tabindex="0" aria-label="The BBC Micro's screen: click to type"></canvas>
+        </div>
+        <p class="hint" id="focus-hint">
+          Click the screen to type on the BBC's keyboard. F12 is Break, End is COPY.
+          <label>Keys:
+            <select id="keyboard-mode">
+              <option value="layout">as your keyboard types them</option>
+              <option value="positional">where they are on a BBC</option>
+            </select>
+          </label>
+        </p>
+      </section>
+
+      <section class="toolbar" aria-label="Discs and text">
+        <label class="file">Disc image <input id="disc-file" type="file" accept=".ssd,.dsd,.adf,.ads,.adm,.adl" /></label>
+        <button id="disc-boot" type="button" disabled title="Shift-Break: boots the disc in drive 0">Boot disc</button>
+        <button id="disc-eject" type="button" disabled>Eject</button>
+        <button id="disc-export" type="button" disabled title="Save the disc, with anything the BBC wrote to it">Save disc…</button>
+        <span id="disc-name" class="state"></span>
+      </section>
+
+      <section class="toolbar" aria-label="Typing">
+        <textarea id="type-text" rows="1" placeholder='Text to type, e.g. PRINT "HELLO"'></textarea>
+        <button id="type" type="button" disabled>Type</button>
+        <button id="save-state" type="button" disabled>Save state…</button>
+        <label class="file">Load state <input id="load-state" type="file" accept=".beebstate" disabled /></label>
+      </section>
+
+      <details class="panel" id="debug">
+        <summary>Performance</summary>
+        <dl id="stats"></dl>
+      </details>
+    </main>
+
+    <footer>
+      <p>
+        <a href="https://github.com/acorn-playground/macbeeb">MacBeeb</a> is free software under the GNU GPL v3,
+        built on the work of many others (b2, jsbeeb, beebjit, BeebEm and more): see its
+        <a href="https://github.com/acorn-playground/macbeeb/blob/main/CREDITS.md">credits</a>.
+        The source of this page and its WebAssembly module is in the same repository.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

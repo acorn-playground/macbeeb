@@ -270,10 +270,12 @@ export class BeebMachine {
    * The last frame, RGBA8, 736 x 576, top row first: a view of the
    * module's memory, valid until the next call into it (copy it to keep it).
    */
-  frame(): Uint8ClampedArray {
+  frame(): Uint8ClampedArray<ArrayBuffer> {
     const pointer = this.module.call("beeb_video_frame", this.handle);
     if (!pointer) this.module.check(-1);
-    return new Uint8ClampedArray(this.module.memory.buffer, pointer, this.module.videoWidth * this.module.videoHeight * 4);
+    // (Linear memory is an ArrayBuffer: the module isn't built shared.)
+    const buffer = this.module.memory.buffer as ArrayBuffer;
+    return new Uint8ClampedArray(buffer, pointer, this.module.videoWidth * this.module.videoHeight * 4);
   }
 
   /** FNV-1a of the last frame: equal frames, equal hashes, on any host. */

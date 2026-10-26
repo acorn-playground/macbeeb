@@ -1,0 +1,263 @@
+:root {
+  --bg: #f4f1ea;
+  --surface: #fffdf8;
+  --text: #1f1d1a;
+  --muted: #6b665d;
+  --border: #d9d3c7;
+  --accent: #b5322a;
+  --accent-text: #fff;
+  --bezel: #2b2926;
+  --light-off: #4a1512;
+  --light-on: #ff3b2f;
+  --error-bg: #fbe3e1;
+  --error-text: #7a1c16;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161513;
+    --surface: #201f1c;
+    --text: #ece8df;
+    --muted: #a39d92;
+    --border: #3a3732;
+    --accent: #e0554b;
+    --bezel: #0d0c0b;
+    --error-bg: #3d1714;
+    --error-text: #ffb4ad;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+header,
+main,
+footer {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+header {
+  padding-top: 20px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+h1 span {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+summary h2 {
+  display: inline;
+}
+
+summary {
+  cursor: pointer;
+}
+
+.tagline,
+.hint,
+footer {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+button,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button#power {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+textarea {
+  flex: 1 1 260px;
+  min-width: 0;
+  resize: vertical;
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+label.file input {
+  max-width: 220px;
+}
+
+.state {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.lights {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.light {
+  font-size: 11px;
+  text-transform: uppercase;
+  padding: 1px 6px 1px 16px;
+  position: relative;
+  color: var(--muted);
+}
+
+.light::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--light-off);
+}
+
+.light.on::before {
+  background: var(--light-on);
+  box-shadow: 0 0 6px var(--light-on);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 10px 0;
+}
+
+.panel p {
+  margin: 0 0 8px;
+}
+
+.rom-slots {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr;
+  gap: 6px 12px;
+  align-items: center;
+}
+
+.rom-slots .ok {
+  color: #2e7d32;
+}
+
+.rom-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 10px !important;
+}
+
+.screen-wrap {
+  margin: 10px 0;
+}
+
+.bezel {
+  background: var(--bezel);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+canvas#screen {
+  display: block;
+  width: 100%;
+  /* PAL pixels: the 736 x 576 frame shown at MacBeeb's aspect. */
+  aspect-ratio: calc(736 * 24 / 25) / 576;
+  background: #000;
+  border-radius: 4px;
+  outline: none;
+}
+
+canvas#screen:focus-visible,
+canvas#screen.focused {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.error {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 10px 0;
+}
+
+.error[hidden] {
+  display: none;
+}
+
+.error span {
+  flex: 1;
+}
+
+#stats {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 16px;
+  margin: 8px 0 0;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 13px;
+}
+
+#stats dt {
+  color: var(--muted);
+}
+
+#stats dd {
+  margin: 0;
+}
+
+footer {
+  padding-bottom: 24px;
+}
+
+footer a {
+  color: inherit;
+}
