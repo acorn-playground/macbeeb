@@ -1,6 +1,7 @@
 // Raw deflate (RFC 1951) decoding, in Swift so that it's the same on every
 // platform MacBeeb's core is built for (WebAssembly has no Compression
-// framework or zlib).
+// framework or zlib). Its canonical Huffman decoding follows Mark Adler's
+// puff, zlib's reference inflater.
 
 enum Inflate {
     /// The data in the deflate stream at the start of `input`, and how many

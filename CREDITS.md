@@ -51,6 +51,7 @@ MacBeeb is checked against suites written, and results measured, by:
 - **Sean Young**, **boo_boo**, **Vladimir Kladov**, **Patrik Rak** and **David Banks**, whose research documented the Z80's undocumented behaviour.
 - **BeebMaster**, for the sideways RAM fitting instructions; **Chris's Acorns** (chrisacorns.computinghistory.org.uk), for the expansion boards' manuals; **zeridajh.org**, for the SN76489's noise generator.
 - **PiEconetBridge**, for documenting the Econet printer server protocol.
+- **Mark Adler**, whose puff (zlib's reference inflater) MacBeeb's own inflater for gzipped tapes follows, and **Yann Collet**, for the LZ4 format, which MacBeeb decodes where Apple's Compression framework isn't available (in its WebAssembly build).
 - **[StarDot](https://stardot.org.uk)**, where so much of this knowledge was found, shared and kept.
 
 MacBeeb itself is free software under the GNU GPL v3.

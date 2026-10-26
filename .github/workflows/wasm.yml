@@ -1,0 +1,58 @@
+# The WebAssembly build and its tests, on Linux: the module, its ABI and
+# parity tests against the native build's recorded checkpoints, the
+# browser demo in Chromium, and type checks of the Cloudflare proof. No
+# signing keys, no Cloudflare account. Started by hand (Actions > WebAssembly
+# > Run workflow) until it's been seen to pass there.
+
+name: WebAssembly
+
+on:
+  workflow_dispatch:
+
+jobs:
+  wasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SWIFT_VERSION: "6.4.1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift toolchain (swiftly) and the WebAssembly SDK
+        run: |
+          curl -fsSLO "https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz"
+          tar zxf "swiftly-$(uname -m).tar.gz"
+          ./swiftly init --quiet-shell-followup --assume-yes --skip-install
+          . "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
+          swiftly install --use "$SWIFT_VERSION"
+          echo "$(dirname "$(command -v swift)")" >> "$GITHUB_PATH"
+          swift sdk install \
+            "https://download.swift.org/swift-${SWIFT_VERSION}-release/wasm-sdk/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE_wasm.artifactbundle.tar.gz" \
+            --checksum 783e6128d174d9f975b4eda68be02a5960681b723ef372e6876a7c2543a365d8
+
+      - name: Build the module
+        run: scripts/build-wasm.sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Module tests (ABI, keyboard, parity with expected.json)
+        working-directory: web
+        run: |
+          npm ci
+          npx tsc --noEmit
+          node --test tests/*.test.ts
+
+      - name: Browser tests
+        working-directory: web
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+
+      - name: Cloudflare proof type checks
+        working-directory: cloudflare
+        run: |
+          npm ci
+          npx wrangler types
+          npx tsc --noEmit

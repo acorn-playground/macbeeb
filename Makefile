@@ -1,4 +1,4 @@
-.PHONY: build test test-debug bench generate beebasm baron
+.PHONY: build test test-debug bench generate beebasm baron wasm wasm-test web-dev web-test cloudflare-smoke
 
 BEEBASM := .build/beebasm/beebasm
 BARON := .build/baron/baron
@@ -40,3 +40,22 @@ $(BARON): $(wildcard ThirdParty/baron/src/*.c ThirdParty/baron/src/*.h)
 	cc -std=c17 -O2 -w $(if $(UNIVERSAL),-arch arm64 -arch x86_64) -IThirdParty/baron/src -IThirdParty/baron/extern/richc/src/core/include \
 		-o $(BARON) $(filter-out %/fuzz_assemble.c,$(wildcard ThirdParty/baron/src/*.c)) \
 		$(shell find ThirdParty/baron/extern/richc/src/core/src -name '*.c')
+
+# WebAssembly (docs/wasm.md): the module, native/WebAssembly parity (with
+# states crossing both ways) and the module's own tests, the browser demo,
+# its browser tests, and the local Cloudflare proof. They need the swift.org
+# toolchain and its WebAssembly SDK, and `npm ci` in web/ and cloudflare/.
+wasm:
+	scripts/build-wasm.sh
+
+wasm-test: wasm
+	scripts/test-wasm.sh
+
+web-dev: wasm
+	cd web && MACBEEB_DEV_ROMS=1 npx vite
+
+web-test: wasm
+	cd web && npx tsc --noEmit && npx playwright test
+
+cloudflare-smoke: wasm
+	cd cloudflare && npx tsc --noEmit && node smoke.ts

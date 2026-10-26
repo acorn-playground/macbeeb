@@ -66,8 +66,12 @@ whose work MacBeeb builds on and includes.
 | `Sources/beeb` | Headless command-line BBC Micro |
 | `Sources/M6502GenKit`, `Sources/m6502-gen` | Generator for the 6502's per-cycle state machine |
 | `Sources/beeb-bench` | Core speed benchmark |
+| `Sources/BeebWasm`, `Sources/BeebWasmModule` | BeebCore as a WebAssembly module, behind a C ABI |
+| `web/` | The BBC Micro in a browser, on that module |
+| `cloudflare/` | A local-only proof of the module in a Cloudflare Worker and Durable Object |
 | `Tests/BeebCoreTests` | CPU suites (Lorenz, Dormann, CMOS ADC/SBC from real hardware, datasheet timings), VIA and timing tests against real-hardware results |
 | `Tests/Oracle6502Tests` | Cycle-by-cycle comparison with [perfect6502](https://github.com/mist64/perfect6502) |
+| `Tests/BeebWasmTests` | The WebAssembly ABI, and parity between the native and WebAssembly builds |
 
 ## Building and testing
 
@@ -104,6 +108,20 @@ can't verify new updates.
 
 `Sources/BeebCore/CPU/M6502+Generated.swift` is generated. After changing
 `Sources/M6502GenKit`, run `make generate`; a test fails if it's stale.
+
+## Browser / WebAssembly
+
+BeebCore, the very same Swift emulation, also builds as a WebAssembly module. The browser demo in `web/` runs it (a Model B or Master 128 with your own ROMs, keyboard, discs and save states); so does a local Cloudflare Worker and Durable Object proof in `cloudflare/`.
+
+```
+make wasm                                  # .build-wasm/beeb.wasm (needs the swift.org 6.4.1 toolchain and its WebAssembly SDK)
+cd web && npm ci && npx vite               # the demo, at http://localhost:5173
+make wasm-test                             # native/WebAssembly parity and the module's tests
+make web-test                              # the demo in a browser (Playwright)
+make cloudflare-smoke                      # the local Cloudflare proof
+```
+
+[docs/wasm.md](docs/wasm.md) covers building, the ABI, testing, measurements and limitations; [docs/wasm-portability-audit.md](docs/wasm-portability-audit.md) what changed in BeebCore; and [docs/cloudflare-feasibility.md](docs/cloudflare-feasibility.md) what the Cloudflare proof found.
 
 ## The command line
 
