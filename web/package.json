@@ -1,0 +1,23 @@
+{
+  "name": "macbeeb-web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "MacBeeb's BBC Micro emulation (BeebCore, compiled to WebAssembly) in a browser",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "wasm": "../scripts/build-wasm.sh",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.ts",
+    "test:browser": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  }
+}

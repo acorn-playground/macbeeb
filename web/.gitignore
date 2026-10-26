@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# The module, copied from .build-wasm by vite.config.ts.
+public/beeb.wasm
+test-results/
+playwright-report/

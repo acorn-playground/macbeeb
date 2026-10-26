@@ -116,6 +116,9 @@ let package = Package(
             exclude: ["LICENSE", "README.md"],
             cSettings: [.unsafeFlags(["-O2", "-w"])]
         ),
+        // The BeebWasm ABI, and parity with the WebAssembly module (whose
+        // side is web/tests).
+        .testTarget(name: "BeebWasmTests", dependencies: ["BeebWasm"], exclude: ["Fixtures"]),
         .testTarget(
             name: "Oracle6502Tests",
             dependencies: ["BeebCore", "Perfect6502"]
