@@ -1,0 +1,18 @@
+{
+  "name": "macbeeb-cloudflare-proof",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local-only proof: MacBeeb's WebAssembly BeebCore in a Cloudflare Worker and Durable Object (wrangler dev)",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local --ip 127.0.0.1 --port 8787",
+    "smoke": "node smoke.ts",
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "wrangler": "4.152.0"
+  }
+}

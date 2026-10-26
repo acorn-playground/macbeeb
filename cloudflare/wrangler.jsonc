@@ -1,0 +1,18 @@
+// A local-only proof (wrangler dev): no routes, no account, nothing to
+// deploy. See README.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "macbeeb-local-proof",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "durable_objects": {
+    "bindings": [{ "name": "MACHINES", "class_name": "BeebMachineObject" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BeebMachineObject"] }],
+  "rules": [
+    { "type": "CompiledWasm", "globs": ["**/*.wasm"], "fallthrough": false },
+    { "type": "Data", "globs": ["**/*.rom"], "fallthrough": false }
+  ],
+  "vars": { "MACBEEB_LOCAL_ONLY": "true" }
+}

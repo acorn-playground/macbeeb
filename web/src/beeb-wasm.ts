@@ -82,18 +82,21 @@ export class BeebModule {
   static async load(source: ModuleSource, options: WasiOptions = {}): Promise<BeebModule> {
     const wasi = new Wasi(options);
     const imports = { wasi_snapshot_preview1: wasi.imports };
+    // (Through `any`: hosts' typings differ, and Workers only take a
+    // compiled module.)
+    const api = WebAssembly as any;
     let instance: WebAssembly.Instance;
     if (source instanceof WebAssembly.Module) {
-      instance = await WebAssembly.instantiate(source, imports);
+      instance = await api.instantiate(source, imports);
     } else if (typeof Response !== "undefined" && (source instanceof Response || "then" in (source as object))) {
       const response = await (source as PromiseLike<Response>);
-      if (typeof WebAssembly.instantiateStreaming === "function" && response.headers.get("content-type") === "application/wasm") {
-        instance = (await WebAssembly.instantiateStreaming(response, imports)).instance;
+      if (typeof api.instantiateStreaming === "function" && response.headers.get("content-type") === "application/wasm") {
+        instance = (await api.instantiateStreaming(response, imports)).instance;
       } else {
-        instance = (await WebAssembly.instantiate(await response.arrayBuffer(), imports)).instance;
+        instance = (await api.instantiate(await response.arrayBuffer(), imports)).instance;
       }
     } else {
-      instance = (await WebAssembly.instantiate(source as BufferSource, imports)).instance;
+      instance = (await api.instantiate(source, imports)).instance;
     }
     const exports = instance.exports as unknown as Exports;
     wasi.memory = exports.memory;
