@@ -122,7 +122,7 @@ extension BBCMicro {
             rows.append(("NuLA attribute mode", "\(n.attributeMode)\(n.textAttributeMode ? ", text attributes" : "")"))
             rows.append(("NuLA palette write", n.paletteWritePending ? "half done (first byte \(hex(n.paletteWriteBuffer)))" : "ready"))
             for i in 0..<16 {
-                rows.append(("NuLA colour \(i)", String(format: "&%03X %@", n.outputPalette[i], n.rgb888(i)) + (n.flash[i] ? ", flashes" : "")))
+                rows.append(("NuLA colour \(i)", String(format: "&%03X ", n.outputPalette[i]) + n.rgb888(i) + (n.flash[i] ? ", flashes" : "")))
             }
         }
         return HardwareSection(nula == nil ? "Video ULA" : "Video ULA (VideoNuLA)", rows)

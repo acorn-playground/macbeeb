@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// Why a change to a disc's files can't be made: the filing system's own
 /// errors, mostly.

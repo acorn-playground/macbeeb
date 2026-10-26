@@ -8,8 +8,11 @@
 // cycles at either end), &0117 (300/1200 baud). Everything else (origin,
 // instructions, inlay, phase changes, markers, ...) is skipped.
 
-import Compression
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public enum UEF {
     public enum Error: Swift.Error, Equatable {
@@ -147,7 +150,7 @@ public enum UEF {
 // MARK: gzip and zlib
 
 /// gzip (RFC 1952, including concatenated members) and zlib (RFC 1950)
-/// wrappers around the Compression framework's raw deflate.
+/// wrappers around raw deflate.
 enum Gzip {
     static func isGzip(_ bytes: [UInt8]) -> Bool {
         bytes.count >= 2 && bytes[0] == 0x1F && bytes[1] == 0x8B
@@ -172,16 +175,13 @@ enum Gzip {
                 p += 1
             }
             if flags & 0x02 != 0 { p += 2 }
-            guard p < bytes.count, let member = inflate(bytes[p...]) else { throw .badGzip }
-            // The Compression framework doesn't say where the deflate stream
-            // ended, so find the trailer: the member's CRC and size.
+            guard p < bytes.count, let (member, used) = Inflate.inflate(bytes[p...]) else { throw .badGzip }
+            p += used
+            // The trailer: the member's CRC and size.
             let crc = crc32(member)
             let size = UInt32(truncatingIfNeeded: member.count)
             let trailer = (0..<4).map { UInt8(crc >> ($0 * 8) & 0xFF) } + (0..<4).map { UInt8(size >> ($0 * 8) & 0xFF) }
-            guard let end = (p..<max(p, bytes.count - 7)).first(where: { bytes[$0..<$0 + 8].elementsEqual(trailer) }) else {
-                throw .badGzip
-            }
-            p = end
+            guard p + 8 <= bytes.count, bytes[p..<p + 8].elementsEqual(trailer) else { throw .badGzip }
             output += member
             i = p + 8
             if i >= bytes.count { break }
@@ -200,36 +200,7 @@ enum Gzip {
     /// Inflates the raw deflate stream at the start of `input`, ignoring
     /// anything after it.
     static func inflate(_ input: ArraySlice<UInt8>) -> [UInt8]? {
-        let stream = UnsafeMutablePointer<compression_stream>.allocate(capacity: 1)
-        defer { stream.deallocate() }
-        guard compression_stream_init(stream, COMPRESSION_STREAM_DECODE, COMPRESSION_ZLIB) == COMPRESSION_STATUS_OK else {
-            return nil
-        }
-        defer { compression_stream_destroy(stream) }
-        let bufferSize = 65536
-        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-        defer { buffer.deallocate() }
-        var output: [UInt8] = []
-        return input.withUnsafeBufferPointer { src -> [UInt8]? in
-            guard let base = src.baseAddress else { return nil }
-            stream.pointee.src_ptr = base
-            stream.pointee.src_size = src.count
-            while true {
-                stream.pointee.dst_ptr = buffer
-                stream.pointee.dst_size = bufferSize
-                let status = compression_stream_process(stream, Int32(COMPRESSION_STREAM_FINALIZE.rawValue))
-                output.append(contentsOf: UnsafeBufferPointer(start: buffer, count: bufferSize - stream.pointee.dst_size))
-                switch status {
-                case COMPRESSION_STATUS_OK:
-                    // Out of input with the stream unfinished: truncated.
-                    if stream.pointee.src_size == 0 && stream.pointee.dst_size != 0 { return nil }
-                case COMPRESSION_STATUS_END:
-                    return output
-                default:
-                    return nil
-                }
-            }
-        }
+        Inflate.inflate(input)?.data
     }
 
     static let crcTable: [UInt32] = (0..<256).map { n in

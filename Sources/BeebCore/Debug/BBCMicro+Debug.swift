@@ -401,7 +401,7 @@ extension BBCMicro {
         case "D": return c.d ? 1 : 0
         case "V": return c.v ? 1 : 0
         case "N": return c.n ? 1 : 0
-        case "CYCLES": return Int(cycles)
+        case "CYCLES": return Int(truncatingIfNeeded: cycles)
         default: return nil
         }
     }
@@ -493,7 +493,7 @@ extension BBCMicro {
         case "IM": Int(c.im)
         case "IFF1": c.iff1 ? 1 : 0
         case "IFF2": c.iff2 ? 1 : 0
-        case "CYCLES": Int(cycles)
+        case "CYCLES": Int(truncatingIfNeeded: cycles)
         default: Self.z80Flags[name].map { c.f & $0 != 0 ? 1 : 0 }
         }
     }

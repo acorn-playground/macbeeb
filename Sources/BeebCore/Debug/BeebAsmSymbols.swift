@@ -11,12 +11,21 @@
 // lines (and the line that called it), and FOR loops' repeats to the loop
 // body.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 extension SymbolTable {
     /// Parses a BeebAsm symbol dump.
     static func parseBeebAsmSymbols(_ text: String) -> SymbolTable {
         var table = SymbolTable()
+        #if canImport(FoundationEssentials)
+        // (No NSRegularExpression without Foundation: symbol files are
+        // the Mac's business, not the WebAssembly build's.)
+        return table
+        #else
         let regex = try! NSRegularExpression(pattern: "'([^']+)':(-?[0-9]+)L?")
         var shortNames: [String: Int] = [:]
         var shortCounts: [String: Int] = [:]
@@ -38,6 +47,7 @@ extension SymbolTable {
             table.add(short, value)
         }
         return table
+        #endif
     }
 
     /// Symbols and source lines from a BeebAsm build: its -v listing, its
@@ -94,7 +104,7 @@ struct BeebAsmAligner {
         var visited: Set<String> = []
 
         func flatten(_ path: String) {
-            let file = (path as NSString).standardizingPath
+            let file = path.pathStandardized
             guard !visited.contains(file), let text = try? String(contentsOfFile: file, encoding: .utf8)
                     ?? String(contentsOfFile: file, encoding: .isoLatin1) else { return }
             visited.insert(file)
@@ -119,7 +129,7 @@ struct BeebAsmAligner {
                     }
                     if upper.hasPrefix("INCLUDE ") || upper.hasPrefix("INCLUDE\"") {
                         if let name = Self.quoted(statement) {
-                            let relative = ((file as NSString).deletingLastPathComponent as NSString).appendingPathComponent(name)
+                            let relative = file.pathDeletingLastComponent.pathAppendingComponent(name)
                             flatten(FileManager.default.fileExists(atPath: relative) ? relative : name)
                         }
                         continue

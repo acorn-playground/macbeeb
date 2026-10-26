@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// Blank, formatted disc images, as DFS's *FORM and ADFS's FORM utility
 /// leave them: an empty catalogue (DFS) or free space map and root

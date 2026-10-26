@@ -1,3 +1,6 @@
+// (Quick Look's: it needs Foundation's formatters, so it isn't in the
+// WebAssembly build.)
+#if !canImport(FoundationEssentials)
 import Foundation
 
 /// A disc image's catalogue as a web page, for Quick Look: its title, boot
@@ -132,3 +135,4 @@ public enum DiscPreview {
         """
     }
 }
+#endif

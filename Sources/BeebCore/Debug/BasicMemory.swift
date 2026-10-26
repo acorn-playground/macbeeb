@@ -1,4 +1,11 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#if canImport(WASILibc)
+import WASILibc
+#endif
+#else
 import Foundation
+#endif
 
 // BBC BASIC as a debugger sees it: the interpreter in its ROM, and the
 // program, variables and PROC/FN calls in memory.

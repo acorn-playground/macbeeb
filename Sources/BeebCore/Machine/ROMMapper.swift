@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 // Sideways ROMs bigger than 16K. A bank shows 16K at &8000-&BFFF, so a 32K,
 // 64K or 128K ROM has logic on its board (or cartridge) that watches the

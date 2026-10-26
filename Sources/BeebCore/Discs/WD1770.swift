@@ -136,9 +136,9 @@ public final class WD1770 {
     public private(set) var nmi = false
 
     /// Microseconds since power on.
-    public private(set) var time = 0
-    private var nextEvent = Int.max
-    private var timerAt = Int.max
+    public private(set) var time: Int64 = 0
+    private var nextEvent = Int64.max
+    private var timerAt = Int64.max
 
     /// The latch, in the Acorn board's layout.
     private var control: UInt8 = 0
@@ -893,7 +893,7 @@ public final class WD1770 {
     private func startTimer(_ state: TimerState, us: Int) {
         timerState = state
         setState(.timerWait)
-        timerAt = time + us
+        timerAt = time + Int64(us)
     }
 
     private func commandDone(raiseIntRq: Bool) {
@@ -1095,8 +1095,8 @@ public final class WD1770 {
         fileprivate var drives: [DiscDrive.State]
         fileprivate var intrq: Bool
         fileprivate var drq: Bool
-        fileprivate var time: Int
-        fileprivate var timerAt: Int
+        fileprivate var time: Int64
+        fileprivate var timerAt: Int64
         fileprivate var control: UInt8
         fileprivate var latch: UInt8?
         fileprivate var statusRegister: UInt8

@@ -8,7 +8,11 @@
 // copied into the bottom of RAM, where it runs. The Tube's R1/R4
 // interrupts are IRQ, its NMI is FIQ. Anything else aborts.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public final class ARMSecondProcessor: ARMBus {
     public static let ramSize = 0x40_0000

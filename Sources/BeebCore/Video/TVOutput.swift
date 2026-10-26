@@ -6,7 +6,14 @@
 // Output is `width` x `height` 32-bit pixels, 0x00RRGGBB (BGRA in memory on
 // little-endian), with each scanline doubled.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#if canImport(WASILibc)
+import WASILibc
+#endif
+#else
 import Foundation
+#endif
 
 public final class TVOutput {
     public static let width = 736
@@ -32,8 +39,8 @@ public final class TVOutput {
     var x = 0
     var y = 0
     var stateTimer = 0
-    var totalUnits = 0
-    var lastRetraceStart = 0
+    var totalUnits: Int64 = 0
+    var lastRetraceStart: Int64 = 0
     var lineOffset = 0
 
     /// The frame being scanned out. One extra row so interlaced output can
@@ -114,7 +121,7 @@ public final class TVOutput {
     }
 
     @inline(__always)
-    private func isGoodVsync(_ unitIndex: Int) -> Bool {
+    private func isGoodVsync(_ unitIndex: Int64) -> Bool {
         let since = unitIndex - lastRetraceStart
         // If it's the first vsync ever, assume it's a good one.
         return (since >= Self.minUnitsBetweenVerticalRetrace && since <= Self.maxUnitsBetweenVerticalRetrace)

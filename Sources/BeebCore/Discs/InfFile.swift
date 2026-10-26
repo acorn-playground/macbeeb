@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// A .inf file: the BBC name, addresses and lock of the file it sits
 /// beside, as BBC tools leave them when files come off a disc

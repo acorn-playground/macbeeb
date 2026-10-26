@@ -27,7 +27,11 @@
 //   (as BeebEm's Reset). The Tube's P bit holds the CPU in reset (as on the
 //   real board; BeebEm ignores it), leaving memory alone.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public final class Master512: I80186Bus {
     public private(set) lazy var cpu = I80186(bus: self)
@@ -233,12 +237,23 @@ public final class Master512: I80186Bus {
         debt = s.debt
     }
 
+    /// (Stored as it is where there's no Compression framework.)
     static func compress(_ data: Data) -> Data {
+        #if canImport(Darwin)
         (try? (data as NSData).compressed(using: .lz4) as Data) ?? data
+        #else
+        data
+        #endif
     }
 
-    /// Uncompressed RAM (from an older state) is taken as it is.
+    /// Uncompressed RAM (from an older state, or saved without the
+    /// Compression framework) is taken as it is.
     static func decompress(_ data: Data) -> Data {
-        data.count == Master512.romBase ? data : (try? (data as NSData).decompressed(using: .lz4) as Data) ?? data
+        guard data.count != Master512.romBase else { return data }
+        #if canImport(Darwin)
+        return (try? (data as NSData).decompressed(using: .lz4) as Data) ?? data
+        #else
+        return LZ4.decompress(data) ?? data
+        #endif
     }
 }

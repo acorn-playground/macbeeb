@@ -140,7 +140,7 @@ public final class Intel8271 {
     /// 83-86 make a selected drive ready on the second index pulse after
     /// selection and drop it once 8192 counts of a 31.25kHz clock (262ms)
     /// pass without one.
-    static let readyTimeoutUs = 8192 * 1_000_000 / 31250
+    static let readyTimeoutUs: Int64 = 8192 * 1_000_000 / 31250
     static let readyIndexPulses = 2
 
     public let drives: [DiscDrive]
@@ -148,17 +148,17 @@ public final class Intel8271 {
     public private(set) var nmi = false
 
     /// Microseconds since power on.
-    public private(set) var time = 0
-    private var nextEvent = Int.max
-    private var timerAt = Int.max
+    public private(set) var time: Int64 = 0
+    private var nextEvent = Int64.max
+    private var timerAt = Int64.max
     /// After an abort, NMI stays low until here, so that a completion
     /// raised in the same breath is a fresh edge.
-    private var nmiLowUntil = Int.max
+    private var nmiLowUntil = Int64.max
 
     private var currentDrive: DiscDrive?
     private var ready = false
     private var readyPulses = 0
-    private var lastIndexTime = Int.min / 2
+    private var lastIndexTime = Int64.min / 2
 
     private var paramCallback = ParamAccept.none
     private var indexPulseCallback = IndexPulse.none
@@ -194,13 +194,13 @@ public final class Intel8271 {
     public struct State: Codable, Sendable, Equatable {
         fileprivate var drives: [DiscDrive.State]
         fileprivate var nmi: Bool
-        fileprivate var time: Int
-        fileprivate var timerAt: Int
-        fileprivate var nmiLowUntil: Int
+        fileprivate var time: Int64
+        fileprivate var timerAt: Int64
+        fileprivate var nmiLowUntil: Int64
         fileprivate var currentDrive: Int?
         fileprivate var ready: Bool
         fileprivate var readyPulses: Int
-        fileprivate var lastIndexTime: Int
+        fileprivate var lastIndexTime: Int64
         fileprivate var paramCallback: ParamAccept
         fileprivate var indexPulseCallback: IndexPulse
         fileprivate var timerState: TimerState
@@ -937,7 +937,7 @@ public final class Intel8271 {
         if selectBits != driveOut & DriveOut.selectFlags {
             ready = false
             readyPulses = 0
-            lastIndexTime = Int.min / 2
+            lastIndexTime = Int64.min / 2
             // Edges are counted from the new drive's level.
             stateIsIndexPulse = index
         }
@@ -1085,7 +1085,7 @@ public final class Intel8271 {
 
     private func setTimer(_ newState: TimerState, ms: Int) {
         timerState = newState
-        timerAt = time + ms * 1000
+        timerAt = time + Int64(ms) * 1000
     }
 
     private func startIndexPulseTimeout() {

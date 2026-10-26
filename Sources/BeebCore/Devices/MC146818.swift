@@ -4,7 +4,11 @@
 // 1MHz; the time ticks once a second. Alarms and periodic interrupts aren't
 // emulated (the MOS doesn't use them).
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public struct MC146818: Codable, Sendable {
     public static let ramSize = 50

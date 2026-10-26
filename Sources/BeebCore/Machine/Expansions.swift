@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 // Hardware expansions for the Model B, in the machine's configuration: a
 // board in the 6502's socket (the Watford or Aries shadow RAM boards), and

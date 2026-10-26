@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// An ADFS disc (S, M or L, the old map): the free space map in sectors 0
 /// and 1, and "Hugo" directories from the root at sector 2. Read, and

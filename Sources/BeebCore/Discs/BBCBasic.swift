@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// BBC BASIC programs as text: listing a tokenised program (as LIST does)
 /// and tokenising text (as BASIC does with each line typed in).

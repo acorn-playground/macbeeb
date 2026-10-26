@@ -1,4 +1,11 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#if canImport(WASILibc)
+import WASILibc
+#endif
+#else
 import Foundation
+#endif
 
 /// A BASIC expression, for breakpoint conditions and watching values:
 /// numbers (&hex too), strings, variables and array elements, ? ! and $

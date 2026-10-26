@@ -19,7 +19,11 @@
 // (at their calls) and included files (at the INCLUDE), and back round FOR
 // loops as many times as the symbols say each loop ran.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 extension SymbolTable {
     /// Symbols and source lines from a Baron build: its --symbols JSON and,
@@ -29,7 +33,7 @@ extension SymbolTable {
         let dump = symbols.flatMap { BaronSymbols($0, directory: directory) }
         var table = dump?.table ?? SymbolTable()
         for (source, listing) in listings {
-            let root = source.hasPrefix("/") ? source : (directory as NSString).appendingPathComponent(source)
+            let root = source.hasPrefix("/") ? source : directory.pathAppendingComponent(source)
             var aligner = BaronAligner(root: root, loops: dump?.loops ?? [:])
             for (location, address) in aligner.align(listing) {
                 table.addLine(location, address: address)
@@ -51,13 +55,17 @@ public struct BaronSymbols: Sendable {
 
     /// Relative paths are from `directory`, where Baron ran.
     public init?(_ data: Data, directory: String) {
+        #if canImport(FoundationEssentials)
+        // (JSONSerialization needs Foundation: Baron runs on the Mac.)
+        return nil
+        #else
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let assemblies = root["assemblies"] as? [[String: Any]] else { return nil }
         var shortNames: [String: Int] = [:]
         var shortCounts: [String: Int] = [:]
         for assembly in assemblies {
             let files = (assembly["sources"] as? [String] ?? []).map { path in
-                ((path.hasPrefix("/") ? path : (directory as NSString).appendingPathComponent(path)) as NSString).standardizingPath
+                (path.hasPrefix("/") ? path : directory.pathAppendingComponent(path)).pathStandardized
             }
             sources += files
             for section in assembly["sections"] as? [[String: Any]] ?? [] {
@@ -97,6 +105,7 @@ public struct BaronSymbols: Sendable {
         for (short, value) in shortNames where shortCounts[short] == 1 && table.address(of: short) == nil {
             table.add(short, value)
         }
+        #endif
     }
 }
 
@@ -135,7 +144,7 @@ struct BaronAligner {
     private let root: String
 
     init(root: String, loops: [SourceLocation: Int]) {
-        self.root = (root as NSString).standardizingPath
+        self.root = root.pathStandardized
         passes = loops
         load(self.root)
     }
@@ -192,8 +201,8 @@ struct BaronAligner {
     }
 
     private func resolve(_ name: String, from path: String) -> String {
-        if name.hasPrefix("/") { return (name as NSString).standardizingPath }
-        return (((path as NSString).deletingLastPathComponent as NSString).appendingPathComponent(name) as NSString).standardizingPath
+        if name.hasPrefix("/") { return name.pathStandardized }
+        return path.pathDeletingLastComponent.pathAppendingComponent(name).pathStandardized
     }
 
     /// A line without its comment (from `;` or `\` outside quotes).

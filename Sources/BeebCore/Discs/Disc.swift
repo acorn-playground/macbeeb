@@ -7,7 +7,11 @@
 // is a flux reversal. A standard track is 3125 words (200ms at 300rpm), so
 // one word is one FM byte (clock and data bits interleaved) or two MFM bytes.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// IBM floppy format constants and FM/MFM/CRC helpers.
 public enum IBMDiscFormat {
@@ -721,7 +725,7 @@ public final class Disc {
 
         /// The format a file name's extension says.
         public init?(path: String) {
-            switch (path as NSString).pathExtension.lowercased() {
+            switch path.pathFileExtension.lowercased() {
             case "ssd": self = .ssd
             case "dsd": self = .dsd
             case "adf", "ads", "adm": self = .adf

@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// An Acorn DFS disc side: the catalogue in sectors 0 and 1, and the files.
 ///

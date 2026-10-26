@@ -8,7 +8,11 @@
 //
 // Built in: the OS's entry points and vectors, and the hardware registers.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public struct SourceLocation: Hashable, Sendable, Codable, CustomStringConvertible {
     /// Absolute path.
@@ -20,7 +24,7 @@ public struct SourceLocation: Hashable, Sendable, Codable, CustomStringConvertib
         self.line = line
     }
 
-    public var description: String { "\((file as NSString).lastPathComponent):\(line)" }
+    public var description: String { "\(file.pathLastComponent):\(line)" }
 }
 
 public struct SymbolTable: Sendable {
@@ -111,7 +115,7 @@ public struct SymbolTable: Sendable {
     /// or a file name; if the line has no code, the next one that does is
     /// used (as a debugger moves a breakpoint).
     public func addresses(file: String, line: Int) -> (line: Int, addresses: [UInt16])? {
-        let candidates = files.filter { $0 == file || ($0 as NSString).lastPathComponent == (file as NSString).lastPathComponent }
+        let candidates = files.filter { $0 == file || $0.pathLastComponent == file.pathLastComponent }
         guard let path = candidates.first(where: { $0 == file }) ?? candidates.first else { return nil }
         let lines = addressesAt.keys.filter { $0.file == path && $0.line >= line }.map(\.line)
         guard let found = lines.min(), found - line < 50 else { return nil }
@@ -158,7 +162,7 @@ public struct SymbolTable: Sendable {
               let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
             throw .unreadable(path)
         }
-        let table = parse(text, directory: (path as NSString).deletingLastPathComponent)
+        let table = parse(text, directory: path.pathDeletingLastComponent)
         guard !table.isEmpty else { throw .empty(path) }
         return table
     }
@@ -190,7 +194,7 @@ public struct SymbolTable: Sendable {
             switch kind {
             case "file":
                 if let id = int("id"), let name = fields["name"] {
-                    files[id] = name.hasPrefix("/") ? name : (directory as NSString).appendingPathComponent(name)
+                    files[id] = name.hasPrefix("/") ? name : directory.pathAppendingComponent(name)
                 }
             case "seg":
                 if let id = int("id"), let start = int("start") { segments[id] = start }
@@ -267,6 +271,10 @@ public struct SymbolTable: Sendable {
     /// Label lists, one per line.
     static func parseLabels(_ text: String) -> SymbolTable {
         var table = SymbolTable()
+        #if canImport(FoundationEssentials)
+        // (No NSRegularExpression without Foundation.)
+        return table
+        #else
         let name = "([A-Za-z_@.][A-Za-z0-9_@.]*)"
         let value = "(?:\\$|&|0x)([0-9A-Fa-f]+)"
         let patterns = [
@@ -290,6 +298,7 @@ public struct SymbolTable: Sendable {
             }
         }
         return table
+        #endif
     }
 
     // MARK: Built in

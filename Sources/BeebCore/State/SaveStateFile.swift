@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// A save state file (.beebstate): everything needed to bring a machine
 /// back exactly, including its ROMs and discs (with any unsaved writes). Binary plist,
@@ -31,15 +35,39 @@ public struct SaveStateFile: Codable, Sendable {
         return machine
     }
 
+    /// The file: compressed with LZFSE, or, where there's no Compression
+    /// framework (WebAssembly), the plain binary plist that `portableData()`
+    /// gives.
     public func data() throws -> Data {
-        let encoder = PropertyListEncoder()
-        encoder.outputFormat = .binary
-        return try (encoder.encode(self) as NSData).compressed(using: .lzfse) as Data
+        #if canImport(Darwin)
+        return try (portableData() as NSData).compressed(using: .lzfse) as Data
+        #else
+        return try portableData()
+        #endif
     }
 
+    /// The file uncompressed: a binary plist, which every build of MacBeeb
+    /// reads (and the only kind it can write without the Compression
+    /// framework).
+    public func portableData() throws -> Data {
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .binary
+        return try encoder.encode(self)
+    }
+
+    /// Reads a file that `data()` or `portableData()` wrote.
     public init(data: Data) throws {
-        guard let plist = try? (data as NSData).decompressed(using: .lzfse) as Data else {
+        var plist = data
+        if !data.starts(with: Array("bplist".utf8)) {
+            #if canImport(Darwin)
+            guard let decompressed = try? (data as NSData).decompressed(using: .lzfse) as Data else {
+                throw FileError.notASaveState
+            }
+            plist = decompressed
+            #else
+            // (LZFSE needs the Compression framework.)
             throw FileError.notASaveState
+            #endif
         }
         self = try PropertyListDecoder().decode(SaveStateFile.self, from: plist)
         guard format == Self.magic else { throw FileError.notASaveState }

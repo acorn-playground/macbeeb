@@ -10,7 +10,11 @@
 // The serial ULA calls `tick()` once per 1MHz cycle while the motor is on,
 // and reads `signal`.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public final class Tape {
     /// What's under the head.

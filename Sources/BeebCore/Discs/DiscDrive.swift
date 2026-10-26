@@ -7,7 +7,14 @@
 // controller that owns the drive supplies the time in microseconds and runs
 // each step when `timer` comes due.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#if canImport(WASILibc)
+import WASILibc
+#endif
+#else
 import Foundation
+#endif
 
 public final class DiscDrive {
     /// For drive noises.
@@ -54,11 +61,11 @@ public final class DiscDrive {
     var seekSteps: Int?
     /// Speed (fraction of 300rpm) when the motor last started or stopped, and when.
     var speedThen = 0.0
-    var speedTime = 0
+    var speedTime: Int64 = 0
     var atFullSpeed = false
 
     /// When the next rotation step is due (us); `.max` when the disc is still.
-    var timer = Int.max
+    var timer = Int64.max
     var stepPulses = 32
 
     public init(id: Int) {
@@ -81,9 +88,9 @@ public final class DiscDrive {
         fileprivate var spinning: Bool
         fileprivate var seekSteps: Int?
         fileprivate var speedThen: Double
-        fileprivate var speedTime: Int
+        fileprivate var speedTime: Int64
         fileprivate var atFullSpeed: Bool
-        fileprivate var timer: Int
+        fileprivate var timer: Int64
         fileprivate var stepPulses: Int
     }
 
@@ -164,7 +171,7 @@ public final class DiscDrive {
     var positionTime: Int { Int(positionFraction * Self.revolutionUs) }
 
     /// Speed as a fraction of 300rpm.
-    func speed(at now: Int) -> Double {
+    func speed(at now: Int64) -> Double {
         if atFullSpeed { return 1 }
         let elapsed = Double(now - speedTime)
         let speed = spinning
@@ -177,13 +184,13 @@ public final class DiscDrive {
         return max(Self.leastSpeed, speed)
     }
 
-    private func noteSpeed(_ now: Int) {
+    private func noteSpeed(_ now: Int64) {
         speedThen = speed(at: now)
         speedTime = now
         atFullSpeed = false
     }
 
-    func startSpinning(at now: Int) {
+    func startSpinning(at now: Int64) {
         guard !spinning else { return }
         noteSpeed(now)
         spinning = true
@@ -191,7 +198,7 @@ public final class DiscDrive {
         if timer == .max { timer = now + 1 }
     }
 
-    func stopSpinning(at now: Int) {
+    func stopSpinning(at now: Int64) {
         guard spinning else { return }
         noteSpeed(now)
         spinning = false
@@ -200,7 +207,7 @@ public final class DiscDrive {
 
     /// First half of a rotation step: the pulses under the head, if the
     /// motor is on (a coasting disc turns but nothing reads it).
-    func rotationPulses(at now: Int) -> (pulses: UInt32, count: Int)? {
+    func rotationPulses(at now: Int64) -> (pulses: UInt32, count: Int)? {
         timer = .max
         stepPulses = pulsePosition == 16 || in32usMode ? 16 : 32
         guard spinning else { return nil }
@@ -216,7 +223,7 @@ public final class DiscDrive {
     }
 
     /// Second half: moves the disc on and schedules the next step.
-    func advanceRotation(at now: Int) {
+    func advanceRotation(at now: Int64) {
         let thisTime = positionTime
         if stepPulses == 16 && pulsePosition == 0 {
             pulsePosition = 16
@@ -231,11 +238,11 @@ public final class DiscDrive {
         }
         let speed = speed(at: now)
         if spinning || speed > Self.leastSpeed {
-            timer = now + Int((Double(nextTime - thisTime) / speed).rounded(.toNearestOrAwayFromZero))
+            timer = now + Int64((Double(nextTime - thisTime) / speed).rounded(.toNearestOrAwayFromZero))
         }
     }
 
-    func quasiRandomPulses(_ now: Int) -> UInt32 {
+    func quasiRandomPulses(_ now: Int64) -> UInt32 {
         let t = UInt32(truncatingIfNeeded: now)
         let data = UInt8(truncatingIfNeeded: t ^ t >> 8 ^ t >> 16 ^ t >> 24)
         return IBMDiscFormat.fmTo2usPulses(clocks: 0xFF, data: data)

@@ -7,7 +7,11 @@
 // the ROM back in for its handler at &0066. Ports 0-7 are the Tube's
 // parasite-side registers; its R1/R4 interrupts are INT, its NMI is NMI.
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 public final class Z80SecondProcessor: Z80Bus {
     public private(set) lazy var cpu = Z80(bus: self)

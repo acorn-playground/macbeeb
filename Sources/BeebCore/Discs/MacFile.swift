@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// A Mac file or folder on its way onto a disc, with its BBC name and
 /// addresses.
@@ -20,6 +24,10 @@ public struct MacFile: Sendable {
     /// would, and a .txt file's lines end in CRs, for *TYPE and *EXEC.
     /// Nil for .inf files themselves, and for folders on DFS.
     public static func read(_ url: URL, adfs: Bool) throws -> MacFile? {
+        #if canImport(FoundationEssentials)
+        // (Reading the Mac's files needs Foundation's URL resources.)
+        throw CocoaError(.featureUnsupported)
+        #else
         let ext = url.pathExtension.lowercased()
         guard ext != "inf" else { return nil }
         let macName = url.lastPathComponent
@@ -54,6 +62,7 @@ public struct MacFile: Sendable {
         }
         file.contents = bytes
         return file
+        #endif
     }
 
     /// A Mac file name as a BBC one: "/" back from ":", a DFS directory

@@ -709,3 +709,37 @@ struct CSWTests {
     }
 }
 
+
+// MARK: Swift decompressors (for builds without the Compression framework)
+
+struct DecompressorTests {
+    /// Text-like, repetitive and incompressible data, in sizes that make
+    /// stored, fixed and dynamic deflate blocks, and several LZ4 blocks.
+    static let samples: [[UInt8]] = {
+        var seed: UInt32 = 0x1234_5678
+        func next() -> UInt8 {
+            seed = seed &* 1_664_525 &+ 1_013_904_223
+            return UInt8(truncatingIfNeeded: seed >> 24)
+        }
+        let text = Array(String(repeating: "10 PRINT \"HELLO WORLD\": GOTO 10\n", count: 400).utf8)
+        return [[], [42], Array(repeating: 0xE5, count: 70_000), text, (0..<200_000).map { _ in next() },
+                text + (0..<5000).map { _ in next() } + text]
+    }()
+
+    @Test func inflatesWhatFoundationDeflates() throws {
+        for sample in Self.samples {
+            let deflated = try [UInt8]((Data(sample) as NSData).compressed(using: .zlib) as Data)
+            let result = try #require(Inflate.inflate(deflated[...] + [1, 2, 3]))
+            #expect(result.data == sample && result.used == deflated.count)
+            #expect(Inflate.inflate(deflated.dropLast()) == nil || sample.isEmpty)
+        }
+    }
+
+    @Test func decodesAppleLZ4() throws {
+        for sample in Self.samples {
+            let compressed = try (Data(sample) as NSData).compressed(using: .lz4) as Data
+            #expect(LZ4.decompress(compressed) == Data(sample))
+            #expect(LZ4.decompress(compressed.dropLast(5)) == nil)
+        }
+    }
+}

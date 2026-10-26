@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// A disc's files, as its filing system keeps them: DFS (one side, or
 /// two, which the BBC calls drives 0 and 2) or ADFS.
