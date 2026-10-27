@@ -182,6 +182,11 @@ export class RoomAPI {
     return this.request<object>("POST", `v1/rooms/${roomId}/leave`, undefined, memberToken);
   }
 
+  /** The host removes someone (they're disconnected, and must be invited again). */
+  remove(roomId: string, ownerToken: string, participantId: string) {
+    return this.request<object>("DELETE", `v1/rooms/${roomId}/participants/${participantId}`, undefined, ownerToken);
+  }
+
   close(roomId: string, ownerToken: string) {
     return this.request<object>("DELETE", `v1/rooms/${roomId}`, undefined, ownerToken);
   }
