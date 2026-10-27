@@ -3,7 +3,7 @@ import Foundation
 
 /// Ready-made networks to start from.
 public enum NetworkTemplate: String, CaseIterable, Sendable, Identifiable {
-    case econetDemo, econetTimes, distributedMandelbrot, mandelbrotInColour, twoBBCs, schoolClassroom, bbcAndMaster, empty
+    case econetDemo, econetTimes, eliteOverEconet, distributedMandelbrot, mandelbrotInColour, twoBBCs, schoolClassroom, bbcAndMaster, empty
 
     public var id: String { rawValue }
 
@@ -11,6 +11,7 @@ public enum NetworkTemplate: String, CaseIterable, Sendable, Identifiable {
         switch self {
         case .econetDemo: "Econet Demo"
         case .econetTimes: "The Econet Times"
+        case .eliteOverEconet: "Elite over Econet"
         case .distributedMandelbrot: "Distributed Mandelbrot"
         case .mandelbrotInColour: "Mandelbrot in Colour"
         case .twoBBCs: "Two BBCs"
@@ -24,6 +25,7 @@ public enum NetworkTemplate: String, CaseIterable, Sendable, Identifiable {
         switch self {
         case .econetDemo: "A classroom ready to try: a welcome screen, and programs on the file server to chat, sign a shared visitors' book and print."
         case .econetTimes: "A newsroom: reporters on three BBCs file stories with the file server, and the editor prints the paper on the printer server, in two columns under a masthead."
+        case .eliteOverEconet: "Mark Moxon's multiplayer Elite: three commanders on a BBC, a 6502 Second Processor and a Master, reporting to a scoreboard, from a Level 3 file server."
         case .distributedMandelbrot: "Eight BBCs draw the Mandelbrot set between them over Econet, each tile worked out by its own 6502: *CLUSTER, then *MANDEL."
         case .mandelbrotInColour: "The Distributed Mandelbrot in MODE 2: the Guide's VideoNuLA gives it sixteen colours of 4,096, and cycles them when it's done. *CLUSTER, then *MANDEL2."
         case .twoBBCs: "The smallest network: two Model Bs, stations 1 and 2, and a clock."
@@ -37,6 +39,7 @@ public enum NetworkTemplate: String, CaseIterable, Sendable, Identifiable {
         switch self {
         case .econetDemo: "sparkles"
         case .econetTimes: "newspaper"
+        case .eliteOverEconet: "airplane"
         case .distributedMandelbrot: "square.grid.3x3.fill"
         case .mandelbrotInColour: "paintpalette"
         case .twoBBCs: "rectangle.on.rectangle"
@@ -84,6 +87,23 @@ public enum NetworkTemplate: String, CaseIterable, Sendable, Identifiable {
             for index in reporters.indices { reporters[index].bootsDisc = true }
             project.nodes = [editor] + reporters
                 + [server(.fileServer, -s / 2, 330), server(.printServer, s / 2, 330), .clock(at: CanvasPoint(x: 1.5 * s + 40, y: 330))]
+        case .eliteOverEconet:
+            // The scoreboard and three commanders, each a different kind of
+            // BBC, starting a little apart (see EliteOverEconet).
+            var scoreboard = station(EliteOverEconet.scoreboardName, 1, -1.5 * s, 0)
+            scoreboard.startupScript = EliteOverEconet.scoreboardScript
+            let setups = [EliteOverEconet.playerSetup, MachineSetup(model: .modelB, secondProcessor: true), MachineSetup(model: .master128)]
+            let players = setups.enumerated().map { index, setup in
+                let commander = EliteOverEconet.commanderName(index)
+                var node = station("Cmdr \(commander.capitalized)", 2 + index, (Double(index) - 0.5) * s, 0, setup: setup)
+                node.startupScript = EliteOverEconet.playerScript(commander: commander, scoreboard: 1,
+                                                                  startDelay: Double(index) * EliteOverEconet.playerSpacing)
+                return node
+            }
+            var server = NetworkNode(kind: .fileServer, name: "Level 3 File Server", stationNumber: EliteOverEconet.serverStation,
+                                     setup: FileServerLevel.level3.setup, position: CanvasPoint(x: -s / 2, y: 330))
+            server.fileServerLevel = .level3
+            project.nodes = [scoreboard] + players + [server, .clock(at: CanvasPoint(x: s / 2 + 40, y: 330))]
         case .distributedMandelbrot, .mandelbrotInColour:
             // The Guide (with VideoNuLA for the colour one), then the
             // workers, along the trunk.
@@ -108,6 +128,13 @@ public enum NetworkTemplate: String, CaseIterable, Sendable, Identifiable {
         }
         project.workspace.tiles = project.stations.filter { $0.kind == .station }.map(\.id)
         return project
+    }
+
+    /// The hard discs a template's machines start with: (node, name, the
+    /// .dat and the .dsc).
+    public func hardDiscs(for project: NetworkProject) -> [(node: UUID, name: String, contents: (image: [UInt8], parameters: [UInt8]))] {
+        guard self == .eliteOverEconet, let server = project.nodes.first(where: { $0.kind == .fileServer }) else { return [] }
+        return [(server.id, "Elite over Econet", EliteOverEconet.disc.contents)]
     }
 
     /// The discs a template's machines start with, for `NetworkPackage`

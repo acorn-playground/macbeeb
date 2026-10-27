@@ -24,6 +24,9 @@ struct JoinRoomView: View {
     enum Target: Hashable {
         case newModelB
         case newMaster
+        /// An Elite over Econet player, for a network with the game's
+        /// file server (and its scoreboard).
+        case newElite
         case network(URL)
     }
 
@@ -121,12 +124,14 @@ struct JoinRoomView: View {
             lookUp()
         }
         .onAppear {
+            if JoinRequests.shared.takeElite() { target = .newElite }
             if let pending = JoinRequests.shared.take() {
                 typed = pending.absoluteString
                 lookUp()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: JoinRequests.arrived)) { _ in
+            if JoinRequests.shared.takeElite() { target = .newElite }
             if let pending = JoinRequests.shared.take() {
                 typed = pending.absoluteString
                 lookUp()
@@ -164,6 +169,7 @@ struct JoinRoomView: View {
             Picker("Join with", selection: $target) {
                 Text("A new network with a BBC Model B").tag(Target.newModelB)
                 Text("A new network with a BBC Master 128").tag(Target.newMaster)
+                Text("A new network with an Elite over Econet player").tag(Target.newElite)
                 ForEach(openNetworks, id: \.url) { session in
                     Text("“\(session.project.name)”, open now").tag(Target.network(session.url))
                 }
@@ -237,8 +243,8 @@ struct JoinRoomView: View {
                 switch target {
                 case .network(let url):
                     session = try NetworkSession.session(for: url)
-                case .newModelB, .newMaster:
-                    session = try makeNetwork(for: preview, model: target == .newMaster ? .master128 : .modelB)
+                case .newModelB, .newMaster, .newElite:
+                    session = try makeNetwork(for: preview, model: target == .newMaster ? .master128 : .modelB, elite: target == .newElite)
                 }
                 try session.enterRoom(service: invitation.service, roomId: preview.roomId, roomName: preview.room.name,
                                       joined: joined, shared: Set(session.project.stations.map(\.id)),
@@ -255,17 +261,26 @@ struct JoinRoomView: View {
     }
 
     /// A network of its own for the room: one machine, at a station number
-    /// nobody in the room has, and a clock.
-    private func makeNetwork(for preview: InvitePreview, model: BBCMicro.Model) throws -> NetworkSession {
+    /// nobody in the room has, and a clock. An Elite player plays as a
+    /// commander nobody in the room is (by its machines' names) and reports
+    /// to the room's scoreboard.
+    private func makeNetwork(for preview: InvitePreview, model: BBCMicro.Model, elite: Bool = false) throws -> NetworkSession {
         let taken = Set(preview.stations.map(\.station))
         let number = (1...253).first { !taken.contains($0) && $0 != 235 } ?? 1
         var project = NetworkProject(name: preview.room.name)
-        let name = model == .modelB ? "BBC \(number)" : "Master \(number)"
-        project.nodes = [
-            NetworkNode(kind: .station, name: name, stationNumber: number, setup: MachineSetup(model: model),
-                        position: CanvasPoint(x: 0, y: 0)),
-            .clock(at: CanvasPoint(x: 0, y: NetworkProject.rowSpacing)),
-        ]
+        var station: NetworkNode
+        if elite {
+            let names = Set(preview.stations.map { $0.label.replacingOccurrences(of: "Cmdr ", with: "").uppercased() })
+            let commander = EliteOverEconet.commanderName(0, avoiding: names)
+            let scoreboard = preview.stations.first { $0.label.hasPrefix(EliteOverEconet.scoreboardName) }?.station
+            station = NetworkNode(kind: .station, name: "Cmdr \(commander.capitalized)", stationNumber: number,
+                                  setup: EliteOverEconet.playerSetup, position: CanvasPoint(x: 0, y: 0))
+            station.startupScript = EliteOverEconet.playerScript(commander: commander, scoreboard: scoreboard)
+        } else {
+            station = NetworkNode(kind: .station, name: model == .modelB ? "BBC \(number)" : "Master \(number)", stationNumber: number,
+                                  setup: MachineSetup(model: model), position: CanvasPoint(x: 0, y: 0))
+        }
+        project.nodes = [station, .clock(at: CanvasPoint(x: 0, y: NetworkProject.rowSpacing))]
         project.workspace.tiles = project.stations.map(\.id)
         project.draft = true
         let url = RecentNetworks.newURL(named: preview.room.name)
@@ -280,6 +295,18 @@ final class JoinRequests {
     static let shared = JoinRequests()
     static let arrived = Notification.Name("MacBeebJoinRequest")
     private var pending: URL?
+    /// File ▸ Add Remote Elite: join with an Elite player.
+    private var wantsElite = false
+
+    func requestElite() {
+        wantsElite = true
+        NotificationCenter.default.post(name: Self.arrived, object: nil)
+    }
+
+    func takeElite() -> Bool {
+        defer { wantsElite = false }
+        return wantsElite
+    }
 
     func handle(_ url: URL) {
         pending = url
@@ -303,5 +330,10 @@ struct JoinRoomMenuItem: View {
     var body: some View {
         Button("Join Econet Network…") { openWindow(id: JoinRoomView.windowID) }
             .keyboardShortcut("j", modifiers: [.command, .shift])
+        Button("Add Remote Elite…") {
+            JoinRequests.shared.requestElite()
+            openWindow(id: JoinRoomView.windowID)
+        }
+        .help("Join an Elite over Econet game on the Internet with a player of your own: you'll need the invitation's code or link")
     }
 }

@@ -95,6 +95,23 @@ public enum EliteOverEconet {
         return steps + [.press("f8")]
     }
 
+    /// The commander a player's script saves, if it's a player's.
+    public static func commander(in script: [StartupStep]) -> String? {
+        guard let index = script.firstIndex(of: .press("DELETE")).map({ $0 + 2 }), index < script.count,
+              case .type(let text) = script[index], text.hasSuffix("\n") else { return nil }
+        return String(text.dropLast())
+    }
+
+    /// A player's script for another commander, reporting where `script`
+    /// does (for a copy of a player).
+    public static func playerScript(like script: [StartupStep], commander: String) -> [StartupStep] {
+        var scoreboard: Int?
+        if let menu = script.firstIndex(of: .press("COPY")), menu + 5 < script.count, case .type(let text) = script[menu + 5] {
+            scoreboard = Int(text.dropLast())
+        }
+        return playerScript(commander: commander, scoreboard: scoreboard)
+    }
+
     /// What a Level 3 server types once it's reset: ADFS on the hard disc
     /// (drive 0), and its !BOOT, which starts the server and answers its
     /// questions (the date, the time, one drive, Start).

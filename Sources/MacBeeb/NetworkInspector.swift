@@ -188,7 +188,7 @@ struct MachineInspector: View {
                 InspectorSection("File Server") {
                     LabeledContent("Server") {
                         Picker("Server", selection: Binding(get: { node.level }, set: { session.setFileServerLevel(node.id, $0) })) {
-                            ForEach(FileServerLevel.allCases, id: \.self) { level in
+                            ForEach(FileServerLevel.allCases.filter { $0.isChoosable || $0 == node.level }, id: \.self) { level in
                                 Text(level.displayName).tag(level)
                             }
                         }
@@ -199,6 +199,7 @@ struct MachineInspector: View {
                         LabeledContent("Console", value: line)
                             .font(.callout.monospaced())
                     }
+                    if node.level != .level3 {
                     HStack {
                         Button("Add Files…") { session.chooseFilesForServer(node.id) }
                             .help(node.level == .level2
@@ -210,7 +211,15 @@ struct MachineInspector: View {
                         .disabled(controller == nil)
                         .help("The server's disc: its files, to add, rename, delete or drag out to the Mac")
                     }
-                    if node.level == .level2 {
+                    }
+                    if node.level == .level3 {
+                        Button("Start File Server") { session.startFileServer(node.id) }
+                            .help("Runs Acorn's Level 3 file server in the Second Processor, from the hard disc")
+                        Text("Acorn's Level 3 file server runs in this Master's 6502 Second Processor, from its SCSI hard disc. This one has Mark Moxon's Elite over Econet for the user ELITE: on another machine, type *NET, *I AM 0.254 ELITE, then *ELITE to play, or *ELITE S for the scoreboard.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else if node.level == .level2 {
                         Button("Start File Server") { session.startFileServer(node.id) }
                             .help("Runs Acorn's Level 2 file server in the Second Processor, from the utilities disc in drive 1, serving the disc in drive 0")
                         Text("Acorn's Level 2 file server runs in this BBC's 6502 Second Processor, serving the disc in drive 0. Its users are SYST (who can make others with *NEWUSER), BOOT and GUEST, none with a password. On the other machines, type *NET, then *I AM GUEST (or another user): each has their own directory, and $.LIBRARY is everyone's library. Shift-Break logs on as BOOT and runs its !BOOT (hold N too on a Model B). Files dropped on its card go in $.LIBRARY, with the server off.")

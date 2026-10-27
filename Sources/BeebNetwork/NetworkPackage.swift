@@ -51,8 +51,39 @@ public enum NetworkPackage {
             try Data(disc.image).write(to: mediaURL(in: url).appendingPathComponent(String(stored)), options: .atomic)
             project[disc.node]?.discs[disc.drive] = MediaReference(storedName: String(stored), displayName: disc.name)
         }
+        for disc in template.hardDiscs(for: project) {
+            project[disc.node]?.hardDisc = try storeHardDisc(disc.contents, named: disc.name, in: url)
+        }
         try save(project, to: url)
         return project
+    }
+
+    /// Puts a hard disc in the package, as `name`.dat with its .dsc.
+    public static func storeHardDisc(_ contents: (image: [UInt8], parameters: [UInt8]), named name: String,
+                                     in package: URL) throws -> MediaReference {
+        let folder = mediaURL(in: package)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let media = MediaReference(storedName: UUID().uuidString.prefix(8) + "-" + name + ".dat", displayName: name)
+        try Data(contents.image).write(to: url(of: media, in: package), options: .atomic)
+        try Data(contents.parameters).write(to: parametersURL(of: media, in: package), options: .atomic)
+        return media
+    }
+
+    /// Copies a hard disc (and its .dsc) within the package, for a copy of
+    /// its machine.
+    public static func copyHardDisc(_ media: MediaReference, in package: URL) throws -> MediaReference {
+        let copy = MediaReference(storedName: UUID().uuidString.prefix(8) + "-" + media.displayName + ".dat",
+                                  displayName: media.displayName)
+        try FileManager.default.copyItem(at: url(of: media, in: package), to: url(of: copy, in: package))
+        if FileManager.default.fileExists(atPath: parametersURL(of: media, in: package).path) {
+            try FileManager.default.copyItem(at: parametersURL(of: media, in: package), to: parametersURL(of: copy, in: package))
+        }
+        return copy
+    }
+
+    /// A hard disc's .dsc, beside its .dat.
+    public static func parametersURL(of media: MediaReference, in package: URL) -> URL {
+        url(of: media, in: package).deletingPathExtension().appendingPathExtension("dsc")
     }
 
     public static func mediaURL(in package: URL) -> URL {
@@ -105,7 +136,10 @@ public enum NetworkPackage {
 
     /// Media the manifest no longer mentions.
     public static func unusedMedia(of project: NetworkProject, in package: URL) -> [URL] {
-        let used = Set(project.nodes.flatMap { $0.discs.values.map(\.storedName) })
+        let hardDiscs = project.nodes.compactMap(\.hardDisc).flatMap { media in
+            [media.storedName, parametersURL(of: media, in: package).lastPathComponent]
+        }
+        let used = Set(project.nodes.flatMap { $0.discs.values.map(\.storedName) } + hardDiscs)
         let files = (try? FileManager.default.contentsOfDirectory(at: mediaURL(in: package), includingPropertiesForKeys: nil)) ?? []
         return files.filter { !used.contains($0.lastPathComponent) }
     }

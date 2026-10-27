@@ -1,5 +1,7 @@
 import AppKit
 import BeebAgentKit
+import BeebCapture
+import BeebCore
 import BeebNetwork
 import SwiftUI
 
@@ -132,6 +134,14 @@ enum NetworkSelfTest {
         }
         if UserDefaults.standard.string(forKey: "MacBeebNetworkSelfTestTemplate") == "hardware" {
             runHardware(path)
+            return
+        }
+        if UserDefaults.standard.string(forKey: "MacBeebNetworkSelfTestTemplate") == "stationWindows" {
+            runStationWindows(path)
+            return
+        }
+        if UserDefaults.standard.string(forKey: "MacBeebNetworkSelfTestTemplate") == NetworkTemplate.eliteOverEconet.rawValue {
+            runElite(path)
             return
         }
         if UserDefaults.standard.string(forKey: "MacBeebNetworkSelfTestTemplate") == NetworkTemplate.econetTimes.rawValue {
@@ -277,6 +287,84 @@ enum NetworkSelfTest {
         }
     }
 
+    /// With `-MacBeebNetworkSelfTestTemplate eliteOverEconet`: opens the
+    /// Elite over Econet network and leaves it to set itself up, until its
+    /// three commanders are on the scoreboard; then saves the canvas, the
+    /// Focus view of the scoreboard, and every machine's screen (path.txt).
+    static func runElite(_ path: String) {
+        NSLog("MacBeeb: Elite self-test starting")
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("macbeeb-network-selftest-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent("Elite over Econet.\(NetworkPackage.fileExtension)")
+        guard (try? NetworkPackage.create(.eliteOverEconet, at: url)) != nil,
+              let session = try? NetworkSession.session(for: url) else {
+            NSLog("MacBeeb: Elite self-test: can't open the network")
+            NSApp.terminate(nil)
+            return
+        }
+        func window(_ mode: NetworkStudioView.Mode) -> NSWindow {
+            let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 1400, height: 820),
+                                  styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
+            window.contentViewController = NSHostingController(rootView: NetworkStudioView(session: session, mode: mode)
+                .frame(width: 1400, height: 820))
+            window.orderBack(nil)
+            return window
+        }
+        let canvas = window(.canvas)
+        Task { @MainActor in
+            let start = Date()
+            var report = ""
+            guard let scoreboard = session.project.stations.first(where: { $0.name == EliteOverEconet.scoreboardName }) else { return }
+            let commanders = session.project.nodes.compactMap { $0.startupScript.flatMap(EliteOverEconet.commander(in:)) }
+            var board = ""
+            for _ in 0..<400 {
+                board = (try? await session.controllers[scoreboard.id]?.host.performAsync { $0.machine.screenText().joined(separator: "\n") })
+                    .flatMap { $0 } ?? ""
+                if commanders.allSatisfy(board.contains) { break }
+                try? await Task.sleep(for: .seconds(1))
+            }
+            report += "Commanders \(commanders) on the scoreboard: \(commanders.allSatisfy(board.contains)) after \(Int(Date().timeIntervalSince(start)))s wall\n\n\(board)\n"
+            capture(canvas, to: path)
+            session.update { $0.workspace.focus = scoreboard.id }
+            let focus = window(.focus)
+            try? await Task.sleep(for: .seconds(2))
+            capture(focus, to: path.replacingOccurrences(of: ".png", with: "-focus.png"))
+            for node in session.project.stations {
+                let text = (try? await session.controllers[node.id]?.host.performAsync { $0.machine.screenText().joined(separator: "\n") }) ?? nil
+                report += "\n== \(node.name)\n\(text ?? "(off)")\n"
+                if let frame = session.controllers[node.id]?.host.frame,
+                   let png = Screenshot.png(pixels: frame.pixels, width: TVOutput.width, height: TVOutput.height) {
+                    try? png.write(to: URL(fileURLWithPath: path.replacingOccurrences(of: ".png", with: "-\(node.stationNumber ?? 0).png")))
+                }
+            }
+            try? report.write(toFile: path.replacingOccurrences(of: ".png", with: ".txt"), atomically: true, encoding: .utf8)
+            NSApp.terminate(nil)
+        }
+    }
+
+    /// With `-MacBeebNetworkSelfTestTemplate stationWindows`: opens a
+    /// window for each of a network's stations, one after another, as the
+    /// studio does, and writes which windows there are then.
+    static func runStationWindows(_ path: String) {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("macbeeb-network-selftest-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent("Station Windows.\(NetworkPackage.fileExtension)")
+        guard (try? NetworkPackage.create(.schoolClassroom, at: url)) != nil, let session = try? NetworkSession.session(for: url) else {
+            NSApp.terminate(nil)
+            return
+        }
+        let refs = session.project.stations.filter { $0.kind == .station }.prefix(3).map { StationWindow.Ref(network: session.url, node: $0.id) }
+        let opener = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 100, height: 100), styleMask: [.titled], backing: .buffered, defer: false)
+        opener.contentViewController = NSHostingController(rootView: StationWindowOpener(refs: Array(refs)))
+        opener.orderBack(nil)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(6))
+            let report = NSApp.windows.filter(\.isVisible).map { "\($0.identifier?.rawValue ?? "-") \($0.title) (tabs: \($0.tabbedWindows?.count ?? 0))" }.joined(separator: "\n")
+            try? report.write(toFile: path, atomically: true, encoding: .utf8)
+            NSApp.terminate(nil)
+        }
+    }
+
     static func capture(_ window: NSWindow, to path: String) {
         guard let view = window.contentView?.superview,
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
@@ -285,5 +373,20 @@ enum NetworkSelfTest {
         }
         view.cacheDisplay(in: view.bounds, to: rep)
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+    }
+}
+
+/// Opens station windows one at a time, as clicking each in turn would.
+private struct StationWindowOpener: View {
+    let refs: [StationWindow.Ref]
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Color.clear.task {
+            for ref in refs {
+                openWindow(id: StationWindow.windowID, value: ref)
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
     }
 }

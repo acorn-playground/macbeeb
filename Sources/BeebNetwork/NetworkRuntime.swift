@@ -51,8 +51,32 @@ public final class NetworkRuntime: @unchecked Sendable {
         for (drive, media) in node.discs {
             insert(media, drive: drive, into: host)
         }
+        if let media = node.hardDisc {
+            attachHardDisc(media, to: host)
+        }
         stations[node.id] = host
         return host
+    }
+
+    /// Connects one of the package's hard discs to a station's SCSI
+    /// interface; the BBC's writes go back to the package's copy as it
+    /// makes them. `prepare` can change the image first.
+    public func attachHardDisc(_ media: MediaReference, to host: EmulatorHost, prepare: ((inout [UInt8]) -> Void)? = nil) {
+        let url = NetworkPackage.url(of: media, in: packageURL)
+        let parametersURL = NetworkPackage.parametersURL(of: media, in: packageURL)
+        guard var image = FileManager.default.contents(atPath: url.path).map({ [UInt8]($0) }) else { return }
+        if let prepare {
+            let before = image
+            prepare(&image)
+            if image != before { try? Data(image).write(to: url, options: .atomic) }
+        }
+        let parameters = FileManager.default.contents(atPath: parametersURL.path).map { [UInt8]($0) }
+        let disc = HardDisc(image: image, parameters: parameters)
+        let file = HardDiscFile(url: url, parametersURL: parametersURL)
+        disc.onSectorWritten = { lba, bytes in file.write(bytes, at: lba * 256) }
+        disc.onParametersWritten = { file.writeParameters($0) }
+        disc.onFormatted = { file.truncate() }
+        host.send(.perform { session in session.machine.attachHardDisc(disc) })
     }
 
     /// Switches a machine off: it stops, and its memory is gone. Its discs
@@ -72,5 +96,38 @@ public final class NetworkRuntime: @unchecked Sendable {
         host.send(.insertDisc(image: [UInt8](data), format: format, drive: drive, onWrite: { bytes in
             try? Data(bytes).write(to: url, options: .atomic)
         }))
+    }
+}
+
+/// A hard disc's .dat, written as the BBC writes its sectors (on the
+/// emulation thread).
+final class HardDiscFile: @unchecked Sendable {
+    let url: URL
+    let parametersURL: URL
+    private var handle: FileHandle?
+
+    init(url: URL, parametersURL: URL) {
+        self.url = url
+        self.parametersURL = parametersURL
+    }
+
+    func write(_ bytes: ArraySlice<UInt8>, at offset: Int) {
+        if handle == nil { handle = try? FileHandle(forWritingTo: url) }
+        guard let handle else { return }
+        try? handle.seek(toOffset: UInt64(offset))
+        try? handle.write(contentsOf: Data(bytes))
+    }
+
+    func writeParameters(_ bytes: [UInt8]) {
+        try? Data(bytes).write(to: parametersURL, options: .atomic)
+    }
+
+    func truncate() {
+        if handle == nil { handle = try? FileHandle(forWritingTo: url) }
+        try? handle?.truncate(atOffset: 0)
+    }
+
+    deinit {
+        try? handle?.close()
     }
 }

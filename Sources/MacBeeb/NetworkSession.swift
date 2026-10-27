@@ -331,6 +331,31 @@ final class NetworkSession: StationOwner {
         return node.id
     }
 
+    /// Adds an Elite over Econet player: a Model B with sideways RAM that
+    /// logs on to the file server as ELITE when it's ready, plays as a
+    /// commander of its own, and reports to the scoreboard (this network's
+    /// or the Internet room's), switched on.
+    @discardableResult
+    func addElitePlayer(at point: CanvasPoint) -> UUID? {
+        let taken = Set(remoteStations.map(\.station))
+        guard let number = (1...253).first(where: { !taken.contains($0) && $0 != 235 && project.stationNumberProblem($0, for: UUID()) == nil })
+        else { return nil }
+        let commander = freeCommanderName()
+        var node = NetworkNode(kind: .station, name: project.freeName("Cmdr \(commander.capitalized)"), stationNumber: number,
+                               setup: EliteOverEconet.playerSetup, position: point)
+        node.startupScript = EliteOverEconet.playerScript(commander: commander, scoreboard: scoreboardStation)
+        update { $0.nodes.append(node) }
+        powerOn(node.id)
+        return node.id
+    }
+
+    /// Elite over Econet's scoreboard: a machine here called Scoreboard, or
+    /// one in the room.
+    var scoreboardStation: Int? {
+        project.nodes.first { $0.name == EliteOverEconet.scoreboardName }?.stationNumber
+            ?? remoteStations.first { $0.label.hasPrefix(EliteOverEconet.scoreboardName) }?.station
+    }
+
     /// A copy of a machine beside it, with the next free station number
     /// and copies of its discs.
     func duplicate(_ id: UUID) {
@@ -342,6 +367,11 @@ final class NetworkSession: StationOwner {
         node.position.y += 40
         node.discs = node.discs.compactMapValues { media in
             try? NetworkPackage.importMedia(NetworkPackage.url(of: media, in: url), into: url)
+        }
+        node.hardDisc = node.hardDisc.flatMap { try? NetworkPackage.copyHardDisc($0, in: url) }
+        // An Elite player's copy is another commander.
+        if let script = node.startupScript, EliteOverEconet.commander(in: script) != nil {
+            node.startupScript = EliteOverEconet.playerScript(like: script, commander: freeCommanderName())
         }
         update { $0.nodes.append(node) }
         if node.poweredOn {
@@ -412,6 +442,9 @@ final class NetworkSession: StationOwner {
         if node.bootsNetwork == true {
             bootFromNetwork(id)
         }
+        if let script = node.startupScript, !script.isEmpty {
+            runStartupScript(id, script)
+        }
         let controller = MachineController(station: id, host: host, setup: setup, owner: self)
         controller.watchesConsole = node.kind != .station
         for (drive, media) in node.discs {
@@ -450,6 +483,36 @@ final class NetworkSession: StationOwner {
         }
     }
 
+    /// Plays a machine's startup script into it while it's on: a little
+    /// every 50ms, on its own thread, telling it whether a file server's
+    /// ready.
+    private func runStartupScript(_ id: UUID, _ steps: [StartupStep]) {
+        let runner = StartupScriptRunner(steps)
+        Task { @MainActor [weak self] in
+            while let self, let controller = self.controllers[id] {
+                let ready = await self.fileServerReady()
+                let finished = (try? await controller.host.performAsync { session in
+                    runner.advance(session.machine, serverReady: ready)
+                }) ?? true
+                if finished { return }
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+        }
+    }
+
+    /// Whether a file server's ready: one of this network's, or one in the
+    /// Internet room it's in.
+    func fileServerReady() async -> Bool {
+        if await serverBootCommands() != nil { return true }
+        return remoteStations.contains { $0.role == "fileServer" && $0.online }
+    }
+
+    /// A commander's name no Elite player here has.
+    func freeCommanderName() -> String {
+        let taken = Set(project.nodes.compactMap { $0.startupScript.flatMap(EliteOverEconet.commander(in:)) })
+        return EliteOverEconet.commanderName(0, avoiding: taken)
+    }
+
     /// The file servers that have said they're ready, since they started.
     @ObservationIgnored private var readyServers: Set<UUID> = []
 
@@ -457,11 +520,11 @@ final class NetworkSession: StationOwner {
     private func serverBootCommands() async -> [String]? {
         for node in project.nodes where node.kind == .fileServer {
             guard let controller = controllers[node.id] else { continue }
-            let level2 = node.level == .level2
+            let level1 = node.level == .level1
             let (ready, commands) = (try? await controller.host.performAsync { session -> (Bool, [String]?) in
-                // Level 1 says "Ready", Level 2 "Starting - Ready".
+                // Level 1 says "Ready", Levels 2 and 3 "Starting - Ready".
                 let ready = session.machine.screenText().contains { $0.trimmingCharacters(in: .whitespaces).hasSuffix("Ready") }
-                return (ready, level2 ? [] : session.machine.drives[0].disc.flatMap(FileServerDisc.bootCommands(on:)))
+                return (ready, level1 ? session.machine.drives[0].disc.flatMap(FileServerDisc.bootCommands(on:)) : [])
             }) ?? (false, nil)
             if ready { readyServers.insert(node.id) }
             if readyServers.contains(node.id) { return commands ?? [] }
@@ -603,6 +666,10 @@ final class NetworkSession: StationOwner {
             startLevel2FileServer(id)
             return
         }
+        if project[id]?.level == .level3 {
+            startLevel3FileServer(id)
+            return
+        }
         if !isOn(id) { powerOn(id, startingServer: false) }
         guard let controller = controllers[id] else { return }
         if project[id]?.discs[0] == nil, let image = try? FileServerDisc.image() {
@@ -649,6 +716,29 @@ final class NetworkSession: StationOwner {
         }
     }
 
+    /// Starts Acorn's Level 3 file server, from its hard disc: the date
+    /// and time go in the !BOOT that answers its questions, and after Break
+    /// ADFS mounts the hard disc and runs it.
+    private func startLevel3FileServer(_ id: UUID) {
+        guard let media = project[id]?.hardDisc else {
+            let alert = NSAlert()
+            alert.messageText = "This Level 3 file server has no hard disc"
+            alert.informativeText = "Level 3 runs from a hard disc with the server on it, as the Elite over Econet network’s has."
+            alert.runModal()
+            return
+        }
+        if !isOn(id) { powerOn(id, startingServer: false) }
+        guard let controller = controllers[id] else { return }
+        // The machine has the disc as it was: give it the dated one.
+        runtime.attachHardDisc(media, to: controller.host) { EliteOverEconet.dateBoot(&$0) }
+        controller.host.send(.pressBreak)
+        Task { @MainActor in
+            // After Break's banner.
+            try? await Task.sleep(for: .seconds(1.5))
+            controller.host.send(.type(EliteOverEconet.level3Startup))
+        }
+    }
+
     /// Makes a file server Level 1 or Level 2: its hardware changes to
     /// suit (a power cycle, if it's on), and a disc of the other level's
     /// format comes out, so starting puts in a fresh one of its own.
@@ -658,8 +748,8 @@ final class NetworkSession: StationOwner {
         powerOff(id)
         update { project in
             project[id]?.fileServerLevel = level == .level1 ? nil : level
-            project[id]?.setup?.model = .modelB
-            project[id]?.setup?.secondProcessor = level == .level2
+            project[id]?.setup?.model = level.setup.model
+            project[id]?.setup?.secondProcessor = level.setup.secondProcessor
             for (drive, media) in project[id]?.discs ?? [:] {
                 let image = (try? Data(contentsOf: NetworkPackage.url(of: media, in: url))).map { [UInt8]($0.prefix(4)) } ?? []
                 if Level2FileServerDisc.isLevel2(image) != (level == .level2) || drive == Level2FileServerDisc.utilitiesDrive {
@@ -689,6 +779,13 @@ final class NetworkSession: StationOwner {
     /// station shares, while it serves (it sees them at once). Named and
     /// addressed by .inf files beside them; BASIC text (.bas) is tokenised.
     func addFilesToServer(_ id: UUID, _ urls: [URL]) {
+        if project[id]?.level == .level3 {
+            let alert = NSAlert()
+            alert.messageText = "MacBeeb can’t add files to a Level 3 file server yet"
+            alert.informativeText = "Copy them over the network from another station instead."
+            alert.runModal()
+            return
+        }
         if project[id]?.level == .level2 {
             addFilesToLevel2Server(id, urls)
             return
