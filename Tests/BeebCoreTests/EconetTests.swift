@@ -37,6 +37,12 @@ final class EconetRig {
         poweredOff.insert(index)
     }
 
+    /// (`keeping`: machine `index` as it is, just back on the line.)
+    func powerOn(_ index: Int, keeping: Bool) {
+        guard keeping else { return powerOn(index) }
+        poweredOff.remove(index)
+    }
+
     func powerOn(_ index: Int) {
         let old = machines[index]
         let fresh = BBCMicro(configuration: old.configuration)
@@ -154,6 +160,27 @@ struct EconetTests {
     }
 
     /// Nobody listening on station 3: the ROM's own "not listening".
+    /// A station saved while it's listening, and restored into a new
+    /// machine on the line, still hears: the ADLC and the NMI gate are in
+    /// the snapshot.
+    @Test func restoredStationStillListens() throws {
+        let rig = EconetRig([(.modelB, 1), (.modelB, 2)])
+        rig.run(seconds: 1.5)
+        rig.runProgram(1, econetReceiver)
+        #expect(rig.run(until: { rig.screen(1).contains("OPEN") }), "\(rig.screen(1))")
+        let saved = rig.machines[1].snapshot()
+        rig.powerOff(1)
+        let restored = BBCMicro(configuration: rig.machines[1].configuration)
+        try restored.restore(saved)
+        rig.machines[1] = restored
+        rig.bus.attach(restored)
+        rig.powerOn(1, keeping: true)
+        rig.runProgram(0, econetSender(to: 2))
+        #expect(rig.run(until: { rig.screen(0).contains("RESULT") }), "\(rig.screen(0))")
+        #expect(rig.screen(0).contains("RESULT 0 "), "\(rig.screen(0))")
+        #expect(rig.run(until: { rig.screen(1).contains("GOT") }, seconds: 5), "\(rig.screen(1))")
+    }
+
     @Test func nobodyListening() {
         let rig = EconetRig([(.modelB, 1), (.modelB, 2)])
         rig.run(seconds: 1.5)

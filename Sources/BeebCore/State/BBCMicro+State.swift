@@ -73,6 +73,9 @@ extension BBCMicro {
         var crtcLastOutput: CRTC6845.Output
         var ic15Byte: UInt8
         var unit: VideoUnit
+        /// The Econet module's ADLC and NMI gate (nil without one, and in
+        /// older snapshots, which restore it reset).
+        var econet: Econet.State? = nil
     }
 
     public func snapshot() -> Snapshot {
@@ -95,7 +98,7 @@ extension BBCMicro {
                  expansion: expansionSnapshot,
                  romRegions: mappersFitted ? (0..<16).map { romRegions[$0] } : nil,
                  crtcLastOutput: crtcLastOutput,
-                 ic15Byte: ic15Byte, unit: unit)
+                 ic15Byte: ic15Byte, unit: unit, econet: econet?.state)
     }
 
     public enum RestoreError: Error {
@@ -158,6 +161,9 @@ extension BBCMicro {
         serial = s.serial
         tube = s.tube
         parasiteCredit = s.parasiteCredit
+        if let econet, let state = s.econet {
+            econet.restore(state)
+        }
         if let secondProcessor, let state = s.secondProcessor {
             state.restore(into: secondProcessor)
         }

@@ -18,8 +18,8 @@ public final class Econet {
     /// it reaches the ADLC.
     /// (A nil symbol is the start of one: the line's busy from its first
     /// bit, though the byte isn't in until its last.)
-    private var inbox: [(time: UInt64, symbol: EconetSymbol?)] = []
-    private var inboxNext = 0
+    var inbox: [(time: UInt64, symbol: EconetSymbol?)] = []
+    var inboxNext = 0
     /// What the ADLC has sent this quantum, at the machine's cycles.
     var outbox: [(time: UInt64, symbol: EconetSymbol)] = []
     /// When something next happens: the machine runs `advance` then.
@@ -36,7 +36,7 @@ public final class Econet {
     public private(set) var lastAddressed: UInt64 = 0
     /// Whether the line's last symbol was a flag: the next byte starts a
     /// frame, with its destination.
-    private var frameStarting = false
+    var frameStarting = false
     /// Sees every CPU access (for tests and debugging).
     var accessObserver: ((String) -> Void)?
 
@@ -101,7 +101,7 @@ public final class Econet {
         accessObserver?("\(now) W\(register) \(String(value, radix: 16)) -> sr1 \(String(adlc.sr1, radix: 16)) sr2 \(String(adlc.sr2, radix: 16)) irq \(adlc.irq)")
     }
 
-    private var nmiAsserted = false
+    var nmiAsserted = false
 
     private func updateNMI() {
         let asserted = adlc.irq && nmiEnabled
@@ -142,7 +142,7 @@ public final class Econet {
         reschedule()
     }
 
-    private func reschedule() {
+    func reschedule() {
         let symbolTime = inboxNext < inbox.count ? inbox[inboxNext].time : .max
         nextEvent = min(symbolTime, adlc.nextEventTime ?? .max)
     }
@@ -209,5 +209,46 @@ public final class Econet {
         ]
         lines.append("IRQ: \(a.irq ? "asserted" : "off")")
         return lines.joined(separator: "\n")
+    }
+}
+
+// MARK: Save states
+
+extension Econet {
+    /// Everything about the module that changes (the ADLC's state, the NMI
+    /// gate, what's on its way from the line), for save states and rewind.
+    /// The station number is the machine's configuration's.
+    struct State: Codable, Sendable {
+        var adlc: MC6854.State
+        var nmiEnabled, nmiAsserted: Bool
+        var nmiCount: Int
+        var inbox: [Arrival]
+        var lastTransmitted, lastAddressed: UInt64
+        var frameStarting: Bool
+
+        struct Arrival: Codable, Sendable {
+            var time: UInt64
+            var symbol: EconetSymbol?
+        }
+    }
+
+    var state: State {
+        State(adlc: adlc.state, nmiEnabled: nmiEnabled, nmiAsserted: nmiAsserted, nmiCount: nmiCount,
+              inbox: inbox[inboxNext...].map { State.Arrival(time: $0.time, symbol: $0.symbol) },
+              lastTransmitted: lastTransmitted, lastAddressed: lastAddressed, frameStarting: frameStarting)
+    }
+
+    func restore(_ s: State) {
+        adlc.restore(s.adlc)
+        nmiEnabled = s.nmiEnabled
+        nmiAsserted = s.nmiAsserted
+        nmiCount = s.nmiCount
+        inbox = s.inbox.map { ($0.time, $0.symbol) }
+        inboxNext = 0
+        outbox = []
+        lastTransmitted = s.lastTransmitted
+        lastAddressed = s.lastAddressed
+        frameStarting = s.frameStarting
+        reschedule()
     }
 }

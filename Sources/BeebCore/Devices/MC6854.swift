@@ -11,7 +11,7 @@
 // frame's check bytes take their time, so timing is a byte's.
 
 /// What's on the line, a byte-time at a time.
-public enum EconetSymbol: Sendable, Equatable {
+public enum EconetSymbol: Sendable, Equatable, Codable {
     /// 01111110: between frames, or filling the line while a station holds
     /// it.
     case flag
@@ -106,13 +106,13 @@ public final class MC6854 {
 
     // MARK: Transmitter
 
-    struct TxEntry: Equatable {
+    struct TxEntry: Equatable, Codable {
         var byte: UInt8
         var last: Bool
     }
 
     private(set) var txFIFO: [TxEntry] = []
-    enum TxState: Equatable {
+    enum TxState: Equatable, Codable {
         /// No frame: flags or nothing.
         case idle
         /// In a frame: the next FIFO byte goes out.
@@ -137,19 +137,19 @@ public final class MC6854 {
 
     // MARK: Receiver
 
-    struct RxEntry: Equatable {
+    struct RxEntry: Equatable, Codable {
         var byte: UInt8
         var address: Bool
         /// The frame's last byte, and whether the frame was good.
         var end: FrameEnd?
     }
 
-    enum FrameEnd: Equatable {
+    enum FrameEnd: Equatable, Codable {
         case valid, error
     }
 
     private(set) var rxFIFO: [RxEntry] = []
-    enum RxState: Equatable {
+    enum RxState: Equatable, Codable {
         /// Out of step: waiting for a flag.
         case hunting
         /// After a flag: the next byte is a frame's address.
@@ -648,5 +648,53 @@ public final class MC6854 {
     private func clearCauses(sr1 bits1: UInt8, sr2 bits2: UInt8) {
         causes.0 &= ~bits1
         causes.1 &= ~bits2
+    }
+}
+
+// MARK: Save states
+
+extension MC6854 {
+    /// Everything about the ADLC that changes, for save states and rewind.
+    struct State: Codable, Sendable {
+        var cr1, cr2, cr3, cr4, sr1, sr2: UInt8
+        var noClock, notClearToSend: Bool
+        var bitTime: Int
+        var irq: Bool
+        var txFIFO: [TxEntry]
+        var txState: TxState
+        var nextTxTime: UInt64?
+        var underrun, frameComplete: Bool
+        var rxFIFO: [RxEntry]
+        var rxState: RxState
+        var pipeline: [UInt8?]
+        var pipelineStartsFrame: Bool
+        var pendingEnd: FrameEnd?
+        var frameValid, frameError, abortReceived, overrun, dcdLatched, flagDetected: Bool
+        var lineQuietSince, receiverEnabledAt: UInt64
+        var causes1, causes2, shown1, shown2: UInt8
+        var ctsLatched, collision, idleKnown: Bool
+    }
+
+    var state: State {
+        State(cr1: cr1, cr2: cr2, cr3: cr3, cr4: cr4, sr1: sr1, sr2: sr2, noClock: noClock, notClearToSend: notClearToSend,
+              bitTime: bitTime, irq: irq, txFIFO: txFIFO, txState: txState, nextTxTime: nextTxTime, underrun: underrun,
+              frameComplete: frameComplete, rxFIFO: rxFIFO, rxState: rxState, pipeline: pipeline,
+              pipelineStartsFrame: pipelineStartsFrame, pendingEnd: pendingEnd, frameValid: frameValid, frameError: frameError,
+              abortReceived: abortReceived, overrun: overrun, dcdLatched: dcdLatched, flagDetected: flagDetected,
+              lineQuietSince: lineQuietSince, receiverEnabledAt: receiverEnabledAt, causes1: causes.0, causes2: causes.1,
+              shown1: shown.0, shown2: shown.1, ctsLatched: ctsLatched, collision: collision, idleKnown: idleKnown)
+    }
+
+    /// Takes up a saved state (the IRQ line as it was: the module's told).
+    func restore(_ s: State) {
+        cr1 = s.cr1; cr2 = s.cr2; cr3 = s.cr3; cr4 = s.cr4; sr1 = s.sr1; sr2 = s.sr2
+        noClock = s.noClock; notClearToSend = s.notClearToSend; bitTime = s.bitTime; irq = s.irq
+        txFIFO = s.txFIFO; txState = s.txState; nextTxTime = s.nextTxTime; underrun = s.underrun; frameComplete = s.frameComplete
+        rxFIFO = s.rxFIFO; rxState = s.rxState; pipeline = s.pipeline; pipelineStartsFrame = s.pipelineStartsFrame
+        pendingEnd = s.pendingEnd; frameValid = s.frameValid; frameError = s.frameError; abortReceived = s.abortReceived
+        overrun = s.overrun; dcdLatched = s.dcdLatched; flagDetected = s.flagDetected
+        lineQuietSince = s.lineQuietSince; receiverEnabledAt = s.receiverEnabledAt
+        causes = (s.causes1, s.causes2); shown = (s.shown1, s.shown2)
+        ctsLatched = s.ctsLatched; collision = s.collision; idleKnown = s.idleKnown
     }
 }
