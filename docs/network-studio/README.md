@@ -23,6 +23,7 @@ of one.
 | --- | --- |
 | Econet Demo | A classroom ready to try: a Welcome machine with instructions, two Model Bs, a Master, and demo programs on the file server |
 | The Econet Times | A newsroom: an Editor and three reporters' BBCs, a file server for the stories and a printer server for the paper |
+| Elite over Econet | Mark Moxon's multiplayer Elite: a scoreboard, three commanders (a Model B, a 6502 Second Processor and a Master) and a Level 3 file server |
 | Distributed Mandelbrot | Eight worker BBCs and a Guide machine draw the Mandelbrot set between them over Econet |
 | Mandelbrot in Colour | The same in MODE 2, the Guide's VideoNuLA giving it sixteen colours, which cycle when it's done |
 | Two BBCs | Two Model Bs, stations 1 and 2, and a clock: the smallest network |
@@ -84,6 +85,44 @@ Things to try:
   acknowledged.
 - **LIST the programs**: they're plain BBC BASIC II, on the file server as
   REPORT and EDITOR, using the network filing system's own calls.
+
+## Elite over Econet
+
+[Elite over Econet](https://elite.bbcelite.com/hacks/elite_over_econet/) is
+Mark Moxon's multiplayer Elite: every commander plays their own game, and
+their ships report to a scoreboard over the network, with kills, credits,
+legal status and whether they're docked. **File ▸ New Network…**, then
+**Elite over Econet**:
+- a **Scoreboard** (station 1), a Model B running `*ELITE S` on port 100;
+- three commanders, each a different BBC: **Cmdr Blake** (station 2, a Model
+  B with 16K of sideways RAM, for the full game), **Cmdr Vega** (3, a Model B
+  with a 6502 Second Processor) and **Cmdr Rigel** (4, a Master 128);
+- a **Level 3 File Server** (254): Acorn's Level 3 server, running in the
+  6502 Second Processor of a Master 128 from a SCSI hard disc, the one Mark
+  publishes for emulators, with the game installed for the user ELITE.
+
+It sets itself up, as Mark's instructions say: the server starts (with
+today's date), then each machine logs on with `*I AM 0.254 ELITE`. The
+scoreboard runs `*ELITE S`. Each commander runs `*ELITE` (on the Model B,
+pressing Break when the loader asks, to free memory), saves its commander
+under its own name from the title screen, then, docked at Lave, opens the
+Network Menu (COPY, then N) and points itself at the scoreboard. It takes
+about a minute and a half; the commanders start a few seconds apart, as the
+scoreboard misses reports that arrive together. Then click a commander and
+play: **f0** launches. (COPY pauses, as it does in Elite.)
+
+**More players**: **Elite Player** in the palette adds another Model B
+commander with a name of its own, set up the same way. Over the Internet,
+share the network (the Level 3 server and the scoreboard are shared by
+default), and whoever joins chooses **A new network with an Elite over
+Econet player**, or uses **File ▸ Add Remote Elite…**: their commander loads
+the game from your server and appears on your scoreboard.
+
+**By hand**: the scripts only type what you would. On any machine, type
+`*NET`, `*I AM 0.254 ELITE`, then `*ELITE` (or `*ELITE S`); Mark's
+[instructions](https://elite.bbcelite.com/hacks/elite_over_econet/) explain
+the rest. Commanders are saved in the ELITE user's directory, shared by
+everyone, so give each its own name.
 
 ## The Distributed Mandelbrot
 
@@ -300,7 +339,8 @@ read and write whatever its accounts allow, or print on it. Then send the
 on the welcome screen, or open the invitation link. Type or paste the code
 or link: you see the network's name and machines before anything happens.
 Join with a new network (a Model B or a Master 128, at a free station
-number), or one you have open.
+number), a new network with an Elite over Econet player (for a network
+playing [Elite over Econet](#elite-over-econet)), or one you have open.
 
 **Archimedes too**: MacArch, the Archimedes emulator, shares and joins the
 same networks. Its Archimedes appear on your canvas beside your BBCs

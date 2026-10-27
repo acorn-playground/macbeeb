@@ -72,6 +72,35 @@ struct EliteOverEconetTests {
         #expect(board.contains { $0.contains("M ") && $0.contains("0.004") && $0.contains("RIGEL") }, "\(board)")
     }
 
+    /// The template's package has the server's hard disc (its .dat and
+    /// .dsc), which counts as used.
+    @Test func templateKeepsTheHardDiscInThePackage() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("elite-\(UUID().uuidString).macbeebnet")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let project = try NetworkPackage.create(.eliteOverEconet, at: url)
+        let server = try #require(project.nodes.first { $0.kind == .fileServer })
+        #expect(server.level == .level3 && server.setup?.model == .master128 && server.setup?.secondProcessor == true)
+        let media = try #require(server.hardDisc)
+        let dat = try Data(contentsOf: NetworkPackage.url(of: media, in: url))
+        let dsc = try Data(contentsOf: NetworkPackage.parametersURL(of: media, in: url))
+        #expect(dat.count == 10_002_432 && dsc.count == 22)
+        #expect(NetworkPackage.unusedMedia(of: project, in: url).isEmpty)
+        let reloaded = try NetworkPackage.load(from: url)
+        #expect(reloaded.nodes.filter { $0.startupScript != nil }.count == 4)
+        #expect(Set(reloaded.nodes.compactMap { $0.startupScript.flatMap(EliteOverEconet.commander(in:)) }) == ["BLAKE", "VEGA", "RIGEL"])
+    }
+
+    /// A copy of a player is another commander, reporting to the same
+    /// scoreboard.
+    @Test func copiedPlayerKeepsItsScoreboard() {
+        let script = EliteOverEconet.playerScript(commander: "BLAKE", scoreboard: 7, startDelay: 9)
+        let copy = EliteOverEconet.playerScript(like: script, commander: "VEGA")
+        #expect(EliteOverEconet.commander(in: copy) == "VEGA")
+        #expect(copy == EliteOverEconet.playerScript(commander: "VEGA", scoreboard: 7))
+        #expect(EliteOverEconet.playerScript(like: EliteOverEconet.playerScript(commander: "A", scoreboard: nil), commander: "B")
+            == EliteOverEconet.playerScript(commander: "B", scoreboard: nil))
+    }
+
     /// A Master with a 6502 Second Processor and the Elite disc on SCSI,
     /// as the Level 3 server.
     static func server() -> BBCMicro {

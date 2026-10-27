@@ -270,12 +270,7 @@ struct JoinRoomView: View {
         var project = NetworkProject(name: preview.room.name)
         var station: NetworkNode
         if elite {
-            let names = Set(preview.stations.map { $0.label.replacingOccurrences(of: "Cmdr ", with: "").uppercased() })
-            let commander = EliteOverEconet.commanderName(0, avoiding: names)
-            let scoreboard = preview.stations.first { $0.label.hasPrefix(EliteOverEconet.scoreboardName) }?.station
-            station = NetworkNode(kind: .station, name: "Cmdr \(commander.capitalized)", stationNumber: number,
-                                  setup: EliteOverEconet.playerSetup, position: CanvasPoint(x: 0, y: 0))
-            station.startupScript = EliteOverEconet.playerScript(commander: commander, scoreboard: scoreboard)
+            station = EliteOverEconet.remotePlayer(number: number, joining: preview.stations.map { ($0.station, $0.label) })
         } else {
             station = NetworkNode(kind: .station, name: model == .modelB ? "BBC \(number)" : "Master \(number)", stationNumber: number,
                                   setup: MachineSetup(model: model), position: CanvasPoint(x: 0, y: 0))

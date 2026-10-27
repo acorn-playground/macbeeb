@@ -44,11 +44,15 @@ public enum EliteOverEconet {
         return "CMDR\(index + 1)"
     }
 
+    /// Time for a machine to start up before anything's typed (a server
+    /// in an Internet room may be ready before it is).
+    static let bootSeconds = 3.0
+
     static var logOn: String { "*NET\n*I AM 0.\(serverStation) \(user)\n" }
 
     /// The scoreboard: *ELITE S, and its port.
     public static var scoreboardScript: [StartupStep] {
-        [.waitForServer, .type(logOn + "*ELITE S\n"), .waitForText(["Please enter the port number"], timeout: 60), .type("\(scoreboardPort)\n")]
+        [.wait(bootSeconds), .waitForServer, .type(logOn + "*ELITE S\n"), .waitForText(["Please enter the port number"], timeout: 60), .type("\(scoreboardPort)\n")]
     }
 
     /// A player: loads Elite (on a Model B, Break and a key free memory
@@ -60,6 +64,7 @@ public enum EliteOverEconet {
     /// together) would be missed.
     public static func playerScript(commander: String, scoreboard: Int?, startDelay: Double = 0) -> [StartupStep] {
         var steps: [StartupStep] = [
+            .wait(bootSeconds),
             .waitForServer,
             .wait(startDelay),
             .type(logOn + "*ELITE\n"),
@@ -93,6 +98,20 @@ public enum EliteOverEconet {
                       .wait(2), .press("N"), .wait(3), .press("SPACE"), .wait(2)]
         }
         return steps + [.press("f8")]
+    }
+
+    /// A player for a network joining an Internet room that has the game's
+    /// server: station `number`, playing as a commander none of the room's
+    /// machines is named for, reporting to the room's scoreboard (if it has
+    /// one). `stations`: the room's, by number and label.
+    public static func remotePlayer(number: Int, joining stations: [(station: Int, label: String)]) -> NetworkNode {
+        let names = Set(stations.map { $0.label.replacingOccurrences(of: "Cmdr ", with: "").uppercased() })
+        let commander = commanderName(0, avoiding: names)
+        let scoreboard = stations.first { $0.label.hasPrefix(scoreboardName) }?.station
+        var node = NetworkNode(kind: .station, name: "Cmdr \(commander.capitalized)", stationNumber: number, setup: playerSetup,
+                               position: CanvasPoint())
+        node.startupScript = playerScript(commander: commander, scoreboard: scoreboard)
+        return node
     }
 
     /// The commander a player's script saves, if it's a player's.

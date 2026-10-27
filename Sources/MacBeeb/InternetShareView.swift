@@ -40,9 +40,10 @@ struct InternetShareView: View {
     }
 
     /// Machines shared by default: stations, not servers (sharing a server
-    /// is a decision).
+    /// is a decision); except a Level 3 server, which is Elite over
+    /// Econet's, there for remote commanders to play from.
     private var defaultShared: [UUID] {
-        session.project.stations.filter { $0.kind == .station }.map(\.id)
+        session.project.stations.filter { $0.kind == .station || $0.level == .level3 && $0.kind == .fileServer }.map(\.id)
     }
 
     private var service: URL { InternetEconetService.current }
