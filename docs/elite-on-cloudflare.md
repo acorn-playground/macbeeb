@@ -159,11 +159,15 @@ The scoreboard is a BBC in MODE 7, so its screen is text. The host could:
 6. **One private deployment** to measure start-up and CPU, then decide on
    opening it up.
 
-## Decisions needed
+## Decisions
 
-- On-demand hosting (event-driven, sleeps when idle) is the recommendation.
-  The alternative is a server that runs all the time.
+Made (27 October 2026):
+- **Event-driven**: the machines run only while there's a frame to handle.
+- **Acorn's ROMs and the Level 3 server** may run on the public service.
+- **Anyone can play**, with a permanent public code. So the room needs a
+  code that doesn't expire or run out, and the shared ELITE directory's
+  risk (anyone can delete commanders) is accepted, or the disc's
+  commanders backed up so it can be put right.
+
+Still open:
 - Where it lives: a member Worker here, or hosted stations in the service.
-- Running Acorn's ROMs and the Level 3 server on a public service.
-- Who can play: invited people (a room with invitations, as now), or
-  anyone, with a permanent public code.
