@@ -28,6 +28,9 @@ public final class Econet {
     var onNMI: (Bool) -> Void = { _ in }
     /// Counts NMIs the ADLC has raised, for tests and the inspector.
     public private(set) var nmiCount = 0
+    /// When the station last sent a frame's byte (the machine's cycles):
+    /// for knowing when it's finished loading something.
+    public private(set) var lastTransmitted: UInt64 = 0
     /// Sees every CPU access (for tests and debugging).
     var accessObserver: ((String) -> Void)?
 
@@ -35,6 +38,7 @@ public final class Econet {
         self.station = station
         adlc.onTransmit = { [unowned self] symbol, time in
             outbox.append((time, symbol))
+            if symbol != .flag { lastTransmitted = time }
         }
         adlc.onIRQChange = { [unowned self] _ in updateNMI() }
         adlc.setLine(clock: false, bitTime: 10, collision: false, now: 0)

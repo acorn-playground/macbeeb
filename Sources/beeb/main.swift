@@ -3,6 +3,7 @@
 //   beeb [--load DISC.ssd:FILE] [--seconds N] [--type TEXT] [--screenshot FILE.png] [--text]
 //        [--record FILE.mp4|.mov [--codec h264|hevc|proRes] [--drive-sounds]] [--disc FILE.ssd|.dsd [--boot]]
 //        [--model-a | --master | --bplus | --compact] [--tube | --z80 | --512 | --arm | --turbo] [--tape FILE.uef|.csw]
+//        [--hard-disc FILE.dat] [--rom BANK:FILE.rom] [--station N]
 //
 // Boots a Model B (OS 1.2, BASIC 2) or with --master a Master 128 (with --z80 or --512 booting the
 // bundled CP/M or DOS Plus disc, unless --disc gives another), types TEXT (with \n for Return), runs
@@ -35,6 +36,9 @@ var tapePath: String?
 var secondProcessor = false
 var coprocessor = BBCMicro.Coprocessor.mos6502
 var driveSounds = false
+var hardDiscPath: String?
+var extraROMs: [Int: [UInt8]] = [:]
+var econetStation: Int?
 
 var arguments = CommandLine.arguments.dropFirst()
 while let argument = arguments.popFirst() {
@@ -57,6 +61,19 @@ while let argument = arguments.popFirst() {
         discPath = value
     case "--boot":
         shiftBreak = true
+    case "--station":
+        // An Econet module, as this station (with no network on it).
+        guard let value = arguments.popFirst().flatMap(Int.init) else { usage() }
+        econetStation = value
+    case "--rom":
+        // A sideways ROM in a bank, in place of what's there.
+        guard let value = arguments.popFirst(), let colon = value.firstIndex(of: ":"), let bank = Int(value[..<colon]),
+              let data = FileManager.default.contents(atPath: String(value[value.index(after: colon)...])) else { usage() }
+        extraROMs[bank] = [UInt8](data)
+    case "--hard-disc":
+        // A SCSI hard disc (with its .dsc beside it, if there is one).
+        guard let value = arguments.popFirst() else { usage() }
+        hardDiscPath = value
     case "--record":
         guard let value = arguments.popFirst() else { usage() }
         recordPath = value
@@ -105,7 +122,10 @@ while let argument = arguments.popFirst() {
     }
 }
 
-let machine = BBCMicro(configuration: BeebROMs.configuration(for: model, secondProcessor: secondProcessor, coprocessor: coprocessor))
+var configuration = BeebROMs.configuration(for: model, secondProcessor: secondProcessor, coprocessor: coprocessor,
+                                           econetStation: econetStation)
+configuration.sidewaysROMs.merge(extraROMs) { $1 }
+let machine = BBCMicro(configuration: configuration)
 if let tapePath {
     do {
         machine.insertTape(try Tape(image: [UInt8](Data(contentsOf: URL(fileURLWithPath: tapePath)))))
@@ -123,6 +143,15 @@ if let discPath {
         FileHandle.standardError.write(Data("beeb: couldn't read disc \(discPath): \(error)\n".utf8))
         exit(1)
     }
+}
+if let hardDiscPath {
+    let url = URL(fileURLWithPath: hardDiscPath)
+    guard let image = try? Data(contentsOf: url) else {
+        FileHandle.standardError.write(Data("beeb: couldn't read hard disc \(hardDiscPath)\n".utf8))
+        exit(1)
+    }
+    let parameters = try? Data(contentsOf: url.deletingPathExtension().appendingPathExtension("dsc"))
+    machine.attachHardDisc(HardDisc(image: [UInt8](image), parameters: parameters.map { [UInt8]($0) }))
 }
 if shiftBreak {
     machine.setKey(.shift, down: true)

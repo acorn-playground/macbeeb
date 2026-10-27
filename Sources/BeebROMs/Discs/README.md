@@ -26,3 +26,16 @@ GEM is copyright Digital Research. The `.img` discs are in the Master 512's
 
 Copyright Acorn Computers; bundled as BeebEm bundles them, on the same basis
 as the ROMs (see ROMs/README.md).
+
+## Elite over Econet
+
+| File | What | Source |
+| --- | --- | --- |
+| elite-over-econet-flicker-free.mbhd | Mark Moxon's Elite over Econet, flicker-free version, on an Acorn Level 3 file server's SCSI hard disc | elite.bbcelite.com (DiscIms for BeebEm: flicker-free/scsi0.dat and .dsc) |
+| elite-over-econet.mbhd | The same, with the original ship drawing | elite.bbcelite.com (DiscIms for BeebEm: original/scsi0.dat and .dsc) |
+
+The `.mbhd` files are BeebEm's `.dat` and `.dsc` packed by
+`scripts/sparse-hard-disc.py`, leaving out the sectors that are all zeros.
+Elite is copyright Ian Bell and David Braben (Acornsoft, 1984); Elite over
+Econet is Mark Moxon's; these are the discs he publishes for playing it in an emulator. The
+Level 3 file server is copyright Acorn Computers.

@@ -24,6 +24,12 @@ final class EconetRig {
         for machine in machines { bus.attach(machine) }
     }
 
+    /// Puts another machine on the line.
+    func add(_ machine: BBCMicro) {
+        machines.append(machine)
+        bus.attach(machine)
+    }
+
     /// Switches machine `index` off (it leaves the line) or on again (a
     /// fresh machine, with the same disc in drive 0).
     func powerOff(_ index: Int) {

@@ -130,6 +130,7 @@ public final class BBCMicro {
         public static let acccon: UInt8 = 1 << 2
         public static let acia: UInt8 = 1 << 3
         public static let tube: UInt8 = 1 << 4
+        public static let scsi: UInt8 = 1 << 5
     }
 
     public enum NMIDevice {
@@ -152,6 +153,9 @@ public final class BBCMicro {
     /// The Econet module, if fitted.
     public let econet: Econet?
     let econetFitted: Bool
+    /// The Acorn SCSI interface on the 1MHz bus, once a hard disc's
+    /// attached.
+    var scsi: AcornSCSI?
     public var saa5050 = SAA5050()
     public var adc = UPD7002()
     public var soundChip = SN76489()
@@ -768,6 +772,7 @@ public final class BBCMicro {
             case 0xFE60: return userVIA.peek(Int(address))
             case 0xFEA0 where econetFitted: return econet!.adlc.peek(Int(address & 3))
         case 0xFEE0 where tubeAccessible: return tube.hostPeek(Int(address))
+            case 0xFC40 where scsi != nil && address < 0xFC44: return scsi!.peek(Int(address & 3))
             default: break
             }
             return 0xFF
@@ -789,6 +794,7 @@ public final class BBCMicro {
         case 0xFEC0 where model.hasADC: return adc.peek(Int(address))
         case 0xFE00 where address & 0x19 == 1: return crtc.readData()
         case 0xFE00 where address & 0x18 == 0x08: return serial.peekACIA(Int(address))
+        case 0xFC40 where scsi != nil && address < 0xFC44: return scsi!.peek(Int(address & 3))
         default: return 0xFF
         }
     }
@@ -839,6 +845,8 @@ public final class BBCMicro {
             }
         case 0xFEC0 where model.hasADC:
             return adc.read(Int(address))
+        case 0xFC40 where scsi != nil && address < 0xFC44:
+            return scsi!.read(Int(address & 3))
         default:
             break
         }
@@ -921,6 +929,8 @@ public final class BBCMicro {
             }
         case 0xFEC0 where model.hasADC:
             adc.write(Int(address), value)
+        case 0xFC40 where scsi != nil && address < 0xFC44:
+            writeSCSI(address, value)
         default:
             if address < 0xFE00 {
                 // FRED and JIM: nothing fitted.
@@ -1101,6 +1111,8 @@ public final class BBCMicro {
             return userVIA.read(Int(address))
         case 0xFEE0 where tubeAccessible:
             return tube.hostRead(Int(address))
+        case 0xFC40 where scsi != nil && address < 0xFC44:
+            return scsi!.read(Int(address & 3))
         default:
             break
         }
@@ -1166,6 +1178,8 @@ public final class BBCMicro {
             userVIA.write(Int(address), value)
         case 0xFEE0 where tubeAccessible:
             tube.hostWrite(Int(address), value)
+        case 0xFC40 where scsi != nil && address < 0xFC44:
+            writeSCSI(address, value)
         default:
             if address < 0xFE00 {
                 unmappedIOWriteObserver?(address, value)
@@ -1203,6 +1217,8 @@ public final class BBCMicro {
         public var cassetteMotor = false
         /// Each drive's activity light (its motor).
         public var drives = [false, false]
+        /// The hard disc's, while a command's running.
+        public var hardDisc = false
 
         public init() {}
     }
@@ -1214,7 +1230,30 @@ public final class BBCMicro {
         lights.shiftLock = addressableLatch & 0x80 == 0
         lights.cassetteMotor = serial.motorOn
         lights.drives = drives.map(\.spinning)
+        lights.hardDisc = scsi?.activeDrive != nil
         return lights
+    }
+
+    /// Connects a hard disc to the SCSI interface as drive `drive` (0-3;
+    /// nil disconnects it). The interface is fitted with the first.
+    public func attachHardDisc(_ disc: HardDisc?, drive: Int = 0) {
+        guard (0..<AcornSCSI.driveCount).contains(drive) else { return }
+        if scsi == nil {
+            guard disc != nil else { return }
+            scsi = AcornSCSI()
+        }
+        scsi?.discs[drive] = disc
+    }
+
+    /// The hard disc attached as `drive`, if any.
+    public func hardDisc(_ drive: Int = 0) -> HardDisc? {
+        scsi?.discs[drive]
+    }
+
+    private func writeSCSI(_ address: UInt16, _ value: UInt8) {
+        guard let scsi else { return }
+        scsi.write(Int(address & 3), value)
+        cpu.setIRQ(IRQDevice.scsi, scsi.irq)
     }
 
     /// Puts a disc in drive 0 or 1 (nil ejects).
@@ -1249,6 +1288,10 @@ public final class BBCMicro {
                 startupDisc = disc
             }
             insertDisc(disc, drive: drive)
+        }
+        // Hard discs are fixed: they stay connected.
+        for drive in 0..<AcornSCSI.driveCount {
+            if let disc = old.hardDisc(drive) { attachHardDisc(disc, drive: drive) }
         }
     }
 

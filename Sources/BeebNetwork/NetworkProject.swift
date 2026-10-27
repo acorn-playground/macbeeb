@@ -230,6 +230,13 @@ public struct NetworkNode: Codable, Sendable, Equatable, Identifiable {
     /// A file server: which of Acorn's servers it runs (nil, the default
     /// and what networks saved before had, is Level 1).
     public var fileServerLevel: FileServerLevel?
+    /// The hard disc on its SCSI interface (a Level 3 file server's), kept
+    /// in the package as BeebEm keeps one: the .dat, with its .dsc beside it.
+    public var hardDisc: MediaReference?
+    /// What's typed into it when it's switched on (once the file server's
+    /// ready, if it waits for it): Elite over Econet's players and
+    /// scoreboard set themselves up with one.
+    public var startupScript: [StartupStep]?
 
     public var level: FileServerLevel { fileServerLevel ?? .level1 }
 
@@ -256,15 +263,20 @@ public struct NetworkNode: Codable, Sendable, Equatable, Identifiable {
 
 /// Acorn's file servers. Level 1 runs on a plain Model B from a DFS disc;
 /// Level 2 needs a 6502 Second Processor and its own disc format, and has
-/// users, passwords, directories and boot options.
+/// users, passwords, directories and boot options. Level 3 runs from an
+/// ADFS hard disc, on a Master 128 with a 6502 Second Processor here (as
+/// BeebEm runs it); MacBeeb has no blank one, so it comes with a network
+/// whose disc has it (Elite over Econet's).
 public enum FileServerLevel: Int, Codable, Sendable, CaseIterable {
     case level1 = 1
     case level2 = 2
+    case level3 = 3
 
     public var displayName: String {
         switch self {
         case .level1: "Level 1"
         case .level2: "Level 2"
+        case .level3: "Level 3"
         }
     }
 
@@ -272,15 +284,23 @@ public enum FileServerLevel: Int, Codable, Sendable, CaseIterable {
     /// network filing systems log on to by default, 253 the next server's.
     public var conventionalStations: [Int] {
         switch self {
-        case .level1: [254]
+        case .level1, .level3: [254]
         case .level2: [254, 253]
         }
     }
 
-    /// The hardware it needs (on the Model B).
+    /// The hardware it needs.
     public var setup: MachineSetup {
-        MachineSetup(model: .modelB, secondProcessor: self == .level2)
+        switch self {
+        case .level1: MachineSetup(model: .modelB)
+        case .level2: MachineSetup(model: .modelB, secondProcessor: true)
+        case .level3: MachineSetup(model: .master128, secondProcessor: true)
+        }
     }
+
+    /// Whether the user can choose it for a file server: Level 3 needs a
+    /// hard disc with the server on it.
+    public var isChoosable: Bool { self != .level3 }
 }
 
 /// A disc a station's drive holds: a copy kept in the network's package

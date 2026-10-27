@@ -101,6 +101,53 @@ public enum BeebROMs {
         }
     }
 
+    /// The bundled SCSI hard discs, kept sparse (see
+    /// scripts/sparse-hard-disc.py): Mark Moxon's Elite over Econet Level 3
+    /// file server discs.
+    public enum BundledHardDisc: String, CaseIterable, Sendable {
+        /// Elite over Econet with the flicker-free ship drawing.
+        case eliteOverEconetFlickerFree = "elite-over-econet-flicker-free.mbhd"
+        /// Elite over Econet as the original game drew its ships.
+        case eliteOverEconet = "elite-over-econet.mbhd"
+
+        public var displayName: String {
+            switch self {
+            case .eliteOverEconetFlickerFree: "Elite over Econet Level 3 File Server (flicker-free)"
+            case .eliteOverEconet: "Elite over Econet Level 3 File Server"
+            }
+        }
+
+        /// The disc as BeebEm keeps it: the .dat's sectors and the .dsc's
+        /// parameters.
+        public var contents: (image: [UInt8], parameters: [UInt8]) {
+            guard let url = bundle.url(forResource: rawValue, withExtension: nil, subdirectory: "Discs"),
+                  let data = try? Data(contentsOf: url), let contents = Self.unpack([UInt8](data)) else {
+                preconditionFailure("missing bundled hard disc \(rawValue)")
+            }
+            return contents
+        }
+
+        /// "MBHD", the 22 parameter bytes, the sector count, then each
+        /// sector that isn't all zeros: its number and its 256 bytes.
+        static func unpack(_ bytes: [UInt8]) -> (image: [UInt8], parameters: [UInt8])? {
+            func word(_ at: Int) -> Int {
+                Int(bytes[at]) | Int(bytes[at + 1]) << 8 | Int(bytes[at + 2]) << 16 | Int(bytes[at + 3]) << 24
+            }
+            guard bytes.count >= 30, bytes.prefix(4).elementsEqual("MBHD".utf8) else { return nil }
+            let parameters = Array(bytes[4..<26])
+            let sectors = word(26)
+            var image = [UInt8](repeating: 0, count: sectors * 256)
+            var at = 30
+            while at + 260 <= bytes.count {
+                let lba = word(at)
+                guard lba < sectors else { return nil }
+                image.replaceSubrange(lba * 256..<lba * 256 + 256, with: bytes[at + 4..<at + 260])
+                at += 260
+            }
+            return at == bytes.count ? (image, parameters) : nil
+        }
+    }
+
     /// The disc drives' noises for `model`: 3.5" drives on the Compact,
     /// 5.25" on the others. Nil if the samples can't be read.
     public static func discDriveSounds(for model: BBCMicro.Model) -> DiscDriveSounds? {
