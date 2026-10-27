@@ -329,13 +329,15 @@ export class RoomConnection {
     const socket = new WebSocket(this.api.connectURL(this.credentials.roomId, ticket));
     socket.binaryType = "arraybuffer";
     this.socket = socket;
-    socket.onopen = () => this.sendJSON({ type: "hello", protocolVersion: PROTOCOL_VERSION, client: CLIENT });
-    socket.onmessage = (event) => {
+    // (Listeners rather than onopen and the like, which Cloudflare's
+    // runtime's WebSocket doesn't have.)
+    socket.addEventListener("open", () => this.sendJSON({ type: "hello", protocolVersion: PROTOCOL_VERSION, client: CLIENT }));
+    socket.addEventListener("message", (event: MessageEvent) => {
       if (this.socket !== socket) return;
       if (typeof event.data === "string") this.control(event.data);
       else this.onTraffic(new Uint8Array(event.data as ArrayBuffer));
-    };
-    socket.onclose = (event) => {
+    });
+    socket.addEventListener("close", (event: CloseEvent) => {
       if (this.socket !== socket) return;
       this.socket = null;
       this.clearTimers();
@@ -346,7 +348,7 @@ export class RoomConnection {
         case 4004: return this.end("This version is too old for the service");
         default: return this.retry("Lost the connection to the room");
       }
-    };
+    });
   }
 
   private retry(problem: string) {
