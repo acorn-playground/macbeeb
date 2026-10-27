@@ -36,7 +36,7 @@ enum BeebStatus: Int32 {
 }
 
 /// The ABI's version: changes when a function changes meaning.
-let beebABIVersion: Int32 = 2
+let beebABIVersion: Int32 = 3
 
 enum Limits {
     static let machines = 16

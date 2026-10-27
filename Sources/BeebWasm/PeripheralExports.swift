@@ -85,6 +85,19 @@ public func beeb_set_second_processor(_ handle: Int32, _ pointer: UnsafeRawPoint
     return 0
 }
 
+/// Sideways RAM in the banks set in `banks` (bit n: bank n), in place of
+/// the model's own (as a board of sideways RAM, such as a 16K one in bank
+/// 4 for Elite on a Model B). A machine that's on is power cycled.
+@_expose(wasm, "beeb_set_sideways_ram")
+@_cdecl("beeb_set_sideways_ram")
+public func beeb_set_sideways_ram(_ handle: Int32, _ banks: Int32) -> Int32 {
+    guard let m = lookup(handle) else { return fail(.invalidHandle, "no machine \(handle)") }
+    guard (0...0xFFFF).contains(banks) else { return fail(.invalidArgument, "banks are bits 0-15") }
+    m.configuration.sidewaysRAMBanks = Set((0..<16).filter { banks & (1 << $0) != 0 })
+    if m.machine != nil { m.powerOn() }
+    return 0
+}
+
 /// Fits VideoNuLA in place of the Video ULA (`on` 1), or the ULA (0). A
 /// machine that's on is power cycled.
 @_expose(wasm, "beeb_set_video_nula")

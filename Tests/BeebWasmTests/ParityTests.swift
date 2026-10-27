@@ -248,7 +248,7 @@ struct ParityTests {
     // MARK: The ABI's checks
 
     @Test func rejectsBadInput() throws {
-        #expect(beeb_abi_version() == 2)
+        #expect(beeb_abi_version() == 3)
         #expect(beeb_create(99) == BeebStatus.unsupported.rawValue)
         #expect(beeb_run(12345, 100) == BeebStatus.invalidHandle.rawValue)
         #expect(beeb_release(12345) == BeebStatus.invalidHandle.rawValue)
@@ -286,6 +286,39 @@ struct ParityTests {
         #expect(beeb_cycles(h) == 1000)
         #expect(String(decoding: UnsafeRawBufferPointer(start: beeb_error_ptr(), count: Int(beeb_error_len())), as: UTF8.self)
                     .contains("save state"))
+    }
+
+    @Test func hardDiscsAttachAndExport() {
+        let h = beeb_create(3)
+        defer { _ = beeb_release(h) }
+        let image = (0..<1024).map { UInt8($0 & 0xFF) }
+        let dsc = [UInt8](repeating: 7, count: 22)
+        #expect(image.withUnsafeBytes { i in dsc.withUnsafeBytes { d in
+            beeb_attach_hard_disc(h, 0, i.baseAddress, Int32(i.count), d.baseAddress, 22) } } == 0)
+        let n = beeb_export_hard_disc(h, 0, 0)
+        #expect(n == 1024 && Array(UnsafeRawBufferPointer(start: beeb_result_ptr(), count: Int(n))) == image)
+        #expect(beeb_export_hard_disc(h, 0, 1) == 22)
+        #expect(Array(UnsafeRawBufferPointer(start: beeb_result_ptr(), count: 22)) == dsc)
+        // Nothing written yet.
+        #expect(beeb_hard_disc_take_written(h, 0) == 0)
+        // Parameters are 22 bytes, or none (the default drive).
+        #expect(image.withUnsafeBytes { beeb_attach_hard_disc(h, 1, $0.baseAddress, 16, $0.baseAddress, 5) } == BeebStatus.badData.rawValue)
+        #expect(image.withUnsafeBytes { beeb_attach_hard_disc(h, 1, $0.baseAddress, 16, nil, 0) } == 0)
+        #expect(beeb_export_hard_disc(h, 1, 1) == 22)
+        #expect(image.withUnsafeBytes { beeb_attach_hard_disc(h, 4, $0.baseAddress, 16, nil, 0) } == BeebStatus.invalidArgument.rawValue)
+        #expect(beeb_detach_hard_disc(h, 0) == 0)
+        #expect(beeb_export_hard_disc(h, 0, 0) == BeebStatus.invalidArgument.rawValue)
+        #expect(beeb_set_sideways_ram(h, 1 << 4) == 0)
+        #expect(beeb_set_sideways_ram(h, 0x1_0000) == BeebStatus.invalidArgument.rawValue)
+    }
+
+    @Test func networkRunsUntilHolding() {
+        let n = beeb_network_create(200_000)
+        defer { _ = beeb_network_release(n) }
+        // With no gateway, nothing holds: it runs the lot.
+        #expect(beeb_network_run_until_holding(n, 3200) == 3200)
+        #expect(beeb_gateway_attach(n, 1) == 0)
+        #expect(beeb_network_run_until_holding(n, 3200) == 3200)
     }
 
     @Test func machinesComeAndGo() {

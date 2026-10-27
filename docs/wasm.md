@@ -145,7 +145,7 @@ How it runs:
 
 ## The ABI
 
-Version 2, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift` and `NetworkExports.swift`), wrapped by `web/src/beeb-wasm.ts`. Version 2 added sound, joysticks, Econet, the 6502 Second Processor and VideoNuLA to version 1, which is otherwise unchanged.
+Version 3, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift`, `NetworkExports.swift` and `HardDiscExports.swift`), wrapped by `web/src/beeb-wasm.ts`. Version 2 added sound, joysticks, Econet, the 6502 Second Processor and VideoNuLA to version 1. Version 3 adds hard discs, sideways RAM and `beeb_network_run_until_holding`; the rest is unchanged.
 
 ### Conventions
 
@@ -179,7 +179,7 @@ Version 2, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift` and
 
 | Function | |
 |---|---|
-| `beeb_abi_version()` | 2 |
+| `beeb_abi_version()` | 3 |
 | `beeb_create(model)` | A machine, with no ROMs yet. Models: 0 Model A, 1 Model B, 2 B+, 3 Master 128, 4 Master Compact. Returns the handle. |
 | `beeb_load_rom(h, slot, p, n)` | Slot -1 is the OS (16K); 0-15 are sideways banks. A machine that's on is power cycled. |
 | `beeb_set_rtc(h, yy, mm, dd, dow, h, m, s)` | The Master's clock at power on. The default is 2000-01-01 00:00:00, so runs repeat. |
@@ -203,6 +203,10 @@ Version 2, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift` and
 | `beeb_set_econet_station(h, n)` | Fits an Econet module as station n (1-254), or takes it out (0). A machine that's on is power cycled. |
 | `beeb_set_second_processor(h, p, n)` | Fits a 6502 Second Processor with its client ROM (TUBE110), or takes it out (no ROM). A machine that's on is power cycled. |
 | `beeb_set_video_nula(h, on)` | VideoNuLA in place of the Video ULA. A machine that's on is power cycled. |
+| `beeb_set_sideways_ram(h, banks)` | Sideways RAM in the banks whose bits are set (bit n: bank n), in place of the model's own: `1 << 4` is a 16K board in bank 4, as Elite on a Model B wants. A machine that's on is power cycled. |
+| `beeb_attach_hard_disc(h, drive, p, n, dsc, k)`, `beeb_detach_hard_disc(h, drive)` | A Winchester on the Acorn SCSI interface (&FC40), as SCSI drive 0-3: its image (256-byte sectors in order, at most 64MB; sectors past the end read as zeros) and its 22-byte `.dsc` parameters (or none, `k` 0, for the largest drive ADFS can use). It stays attached through power cycles and restores. |
+| `beeb_hard_disc_take_written(h, drive)` | The sectors written since the last call, lowest first, in the result buffer: each a 4-byte little-endian sector number then its 256 bytes. A host keeping the disc stores just these. |
+| `beeb_export_hard_disc(h, drive, which)` | The whole image (`which` 0), or its parameters (1). |
 
 ### Networks
 
@@ -213,6 +217,7 @@ Machines and networks share one numbering of handles.
 | `beeb_network_create(clock)` | An Econet line, with a clock of `clock` bits a second (200,000 is usual; 0 is none). At most 8. |
 | `beeb_network_add(n, h)`, `beeb_network_remove(n, h)` | Plugs a machine in, or takes it out. A machine's module, if it has one, joins the line. |
 | `beeb_network_run(n, cycles)` | Runs every machine together, in quanta of the line's delay (32 cycles): each runs a quantum in turn, then the line delivers what they sent, as `NetworkHost` does. Returns the cycles run, a whole number of quanta. A machine on a network refuses `beeb_run`. |
+| `beeb_network_run_until_holding(n, cycles)` | As `beeb_network_run`, but it stops at the end of the quantum in which the gateway starts holding the line for an answer from the room. |
 | `beeb_network_count(n, which)` | 0: frames seen on the line. 1: byte-times spoiled by collisions. |
 | `beeb_network_release(n)` | The machines carry on alone. |
 | `beeb_gateway_attach(n, on)` | Puts BeebCore's Internet gateway (`EconetGateway`) on the line, or takes it off. |
@@ -221,7 +226,7 @@ Machines and networks share one numbering of handles.
 | `beeb_gateway_take(n)` | The gateway's messages for the room, in the result buffer, each a 4-byte big-endian length then the message. |
 | `beeb_gateway_status(n, out)` | Seven counters (frames and broadcasts out and in, no replies, refused as busy, timeouts), and it returns its activity: 0 idle, 1 holding the line, 2 waiting on a local station. |
 
-The host carries a room's messages. The gateway holds the line while a frame is answered elsewhere, for at most two seconds of BBC time, so a networked machine with a gateway must run in real time, as the browser runs it, not as fast as it can.
+The host carries a room's messages. The gateway holds the line while a frame is answered elsewhere, for at most two seconds of BBC time, so a networked machine with a gateway runs in real time, as the browser runs it. Or it needn't run at all while it waits: a host that runs a network only when there's work (a server in the cloud) runs it with `beeb_network_run_until_holding`, stops while the gateway holds the line, and carries on when the room's answer arrives. BBC time stands still meanwhile, so the two seconds never pass. (It does need a limit of its own in real time, for a room that never answers: then it runs on, and the gateway gives up.)
 
 ### Video
 

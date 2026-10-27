@@ -28,6 +28,11 @@ final class WasmMachine {
     var joysticks: [(x: Double, y: Double, fire: Bool)] = [(0, 0, false), (0, 0, false)]
     /// The network it's on, if it is.
     weak var network: WasmNetwork?
+    /// Hard discs on the SCSI interface, by drive: they stay attached
+    /// through power cycles and restored states. And the sectors the BBC's
+    /// written to each since the host last asked.
+    private(set) var hardDiscs: [Int: HardDisc] = [:]
+    var writtenSectors: [Int: Set<Int>] = [:]
 
     /// The last frame as RGBA8, converted when it's asked for.
     let rgba: UnsafeMutablePointer<UInt32>
@@ -73,7 +78,17 @@ final class WasmMachine {
         for (index, stick) in joysticks.enumerated() {
             new.setJoystick(index, x: stick.x, y: stick.y, fire: stick.fire)
         }
+        for (drive, disc) in hardDiscs { new.attachHardDisc(disc, drive: drive) }
         machine = new
+    }
+
+    /// Attaches a hard disc as `drive` (nil detaches it), now and from
+    /// power on.
+    func attachHardDisc(_ disc: HardDisc?, drive: Int) {
+        hardDiscs[drive] = disc
+        writtenSectors[drive] = disc == nil ? nil : []
+        disc?.onSectorWritten = { [unowned self] lba, _ in writtenSectors[drive, default: []].insert(lba) }
+        machine?.attachHardDisc(disc, drive: drive)
     }
 
     /// Starts (or, with nil, stops) making sound at `rate` samples a second.

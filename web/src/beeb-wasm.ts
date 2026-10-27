@@ -8,7 +8,7 @@ import { Wasi, WasiExit, type WasiOptions } from "./wasi.ts";
 export { WasiExit };
 
 /** The ABI version this wrapper speaks. */
-export const ABI_VERSION = 2;
+export const ABI_VERSION = 3;
 
 export const Model = { modelA: 0, modelB: 1, bPlus: 2, master128: 3, masterCompact: 4 } as const;
 export type Model = (typeof Model)[keyof typeof Model];
@@ -238,6 +238,39 @@ export class BeebMachine {
     this.call("beeb_set_video_nula", on ? 1 : 0);
   }
 
+  /** Sideways RAM in these banks (0-15), in place of the model's own. Power cycles a machine that's on. */
+  setSidewaysRAM(banks: number[]) {
+    this.call("beeb_set_sideways_ram", banks.reduce((mask, bank) => mask | (1 << bank), 0));
+  }
+
+  /** A hard disc on the SCSI interface: its image, and its 22 bytes of parameters (null: the largest ADFS can use). */
+  attachHardDisc(drive: number, image: Uint8Array, parameters: Uint8Array | null = null) {
+    this.module.withBytes(image, (p, n) =>
+      this.module.withBytes(parameters ?? new Uint8Array(), (q, k) => this.call("beeb_attach_hard_disc", drive, p, n, q, k)));
+  }
+
+  detachHardDisc(drive: number) {
+    this.call("beeb_detach_hard_disc", drive);
+  }
+
+  /** The sectors written to a hard disc since the last call, by sector number. */
+  takeWrittenSectors(drive: number): Map<number, Uint8Array> {
+    const n = this.call("beeb_hard_disc_take_written", drive);
+    const sectors = new Map<number, Uint8Array>();
+    if (n === 0) return sectors;
+    const buffer = this.module.result(n);
+    for (let p = 0; p + 260 <= buffer.length; p += 260) {
+      const lba = (buffer[p] | (buffer[p + 1] << 8) | (buffer[p + 2] << 16) | (buffer[p + 3] << 24)) >>> 0;
+      sectors.set(lba, buffer.slice(p + 4, p + 260));
+    }
+    return sectors;
+  }
+
+  /** A hard disc's image as it is now, or (`parameters`) its 22 bytes of parameters. */
+  exportHardDisc(drive: number, parameters = false): Uint8Array {
+    return this.module.result(this.call("beeb_export_hard_disc", drive, parameters ? 1 : 0));
+  }
+
   /** An Econet module with this station number (1-254), or none (0). Power cycles a machine that's on. */
   setEconetStation(station: number) {
     this.call("beeb_set_econet_station", station);
@@ -399,6 +432,11 @@ export class BeebNetwork {
   /** Runs every machine `cycles` (rounded up to 32-cycle quanta); returns the cycles run. */
   run(cycles: number): number {
     return this.call("beeb_network_run", cycles);
+  }
+
+  /** As run, but stopping once the gateway's holding the line for an answer from the room. */
+  runUntilHolding(cycles: number): number {
+    return this.call("beeb_network_run_until_holding", cycles);
   }
 
   get frames(): number {
