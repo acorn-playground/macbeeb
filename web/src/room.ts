@@ -154,9 +154,10 @@ export class RoomAPI {
       "GET", ".well-known/acorn-econet");
   }
 
-  createRoom(name: string, displayName: string) {
+  /** A room, with its first invitation for `invite`'s time and uses (null: no limit; left out: the service's default). */
+  createRoom(name: string, displayName: string, invite?: { ttlSeconds?: number | null; maxUses?: number | null }) {
     return this.request<{ roomId: string; participantId: string; ownerToken: string; memberToken: string; invite: Invite }>(
-      "POST", "v1/rooms", { name, description: "", displayName, client: CLIENT, screenSharing: false });
+      "POST", "v1/rooms", { name, description: "", displayName, client: CLIENT, screenSharing: false, ...(invite ? { invite } : {}) });
   }
 
   resolve(invitation: { code?: string; token?: string }) {
@@ -194,8 +195,9 @@ export class RoomAPI {
 }
 
 /** Makes a room, as its host. */
-export async function createRoom(service: string, name: string, displayName: string): Promise<RoomCredentials> {
-  const made = await new RoomAPI(service).createRoom(name, displayName);
+export async function createRoom(service: string, name: string, displayName: string,
+                                 invite?: { ttlSeconds?: number | null; maxUses?: number | null }): Promise<RoomCredentials> {
+  const made = await new RoomAPI(service).createRoom(name, displayName, invite);
   return { service, roomId: made.roomId, roomName: name, participantId: made.participantId, memberToken: made.memberToken,
            ownerToken: made.ownerToken, invite: made.invite };
 }
