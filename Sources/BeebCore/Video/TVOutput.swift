@@ -10,6 +10,10 @@
 import FoundationEssentials
 #if canImport(WASILibc)
 import WASILibc
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
 #endif
 #else
 import Foundation
