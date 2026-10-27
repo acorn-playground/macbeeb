@@ -248,7 +248,7 @@ struct ParityTests {
     // MARK: The ABI's checks
 
     @Test func rejectsBadInput() throws {
-        #expect(beeb_abi_version() == 3)
+        #expect(beeb_abi_version() == 4)
         #expect(beeb_create(99) == BeebStatus.unsupported.rawValue)
         #expect(beeb_run(12345, 100) == BeebStatus.invalidHandle.rawValue)
         #expect(beeb_release(12345) == BeebStatus.invalidHandle.rawValue)
@@ -319,6 +319,41 @@ struct ParityTests {
         #expect(beeb_network_run_until_holding(n, 3200) == 3200)
         #expect(beeb_gateway_attach(n, 1) == 0)
         #expect(beeb_network_run_until_holding(n, 3200) == 3200)
+    }
+
+    @Test func rawRAMAndRestoringAsAnotherStation() throws {
+        let h = beeb_create(1)
+        defer { _ = beeb_release(h) }
+        let os = try Self.file("parity.rom")
+        #expect(os.withUnsafeBytes { beeb_load_rom(h, -1, $0.baseAddress, Int32($0.count)) } == 0)
+        #expect(beeb_set_econet_station(h, 50) == 0)
+        #expect(beeb_set_sideways_ram(h, 1 << 4) == 0)
+        #expect(beeb_power_on(h) == 0)
+        _ = beeb_run(h, 10_000)
+        // Main RAM and sideways RAM, written and read back.
+        let bytes: [UInt8] = [1, 2, 3, 4]
+        #expect(bytes.withUnsafeBytes { beeb_write_ram(h, 0, 0x7000, $0.baseAddress, 4) } == 4)
+        #expect(bytes.withUnsafeBytes { beeb_write_ram(h, 1, 4 << 14 | 0x100, $0.baseAddress, 4) } == 4)
+        var back = [UInt8](repeating: 0, count: 4)
+        #expect(back.withUnsafeMutableBytes { beeb_read_ram(h, 0, 0x7000, 4, $0.baseAddress) } == 4)
+        #expect(back == bytes)
+        #expect(back.withUnsafeMutableBytes { beeb_read_ram(h, 1, 4 << 14 | 0x100, 4, $0.baseAddress) } == 4)
+        #expect(back == bytes)
+        // ROM isn't written; nor past the end.
+        #expect(bytes.withUnsafeBytes { beeb_write_ram(h, 1, 15 << 14, $0.baseAddress, 4) } == BeebStatus.invalidArgument.rawValue)
+        #expect(bytes.withUnsafeBytes { beeb_write_ram(h, 0, 0x12FFE, $0.baseAddress, 4) } == BeebStatus.invalidArgument.rawValue)
+        // A state restored as station 7, with its RAM.
+        let n = beeb_save_state(h)
+        let state = [UInt8](UnsafeRawBufferPointer(start: beeb_result_ptr(), count: Int(n)))
+        let other = beeb_create(1)
+        defer { _ = beeb_release(other) }
+        #expect(state.withUnsafeBytes { beeb_restore_state_station(other, $0.baseAddress, Int32($0.count), 7) } == 0)
+        #expect(machines[other]?.machine?.econet?.station == 7)
+        #expect(machines[other]?.configuration.econetStation == 7)
+        #expect(back.withUnsafeMutableBytes { beeb_read_ram(other, 0, 0x7000, 4, $0.baseAddress) } == 4)
+        #expect(back == bytes)
+        #expect(state.withUnsafeBytes { beeb_restore_state_station(other, $0.baseAddress, Int32($0.count), 255) }
+                == BeebStatus.invalidArgument.rawValue)
     }
 
     @Test func machinesComeAndGo() {

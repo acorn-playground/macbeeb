@@ -36,7 +36,7 @@ enum BeebStatus: Int32 {
 }
 
 /// The ABI's version: changes when a function changes meaning.
-let beebABIVersion: Int32 = 3
+let beebABIVersion: Int32 = 4
 
 enum Limits {
     static let machines = 16
@@ -330,6 +330,57 @@ public func beeb_read_memory(_ handle: Int32, _ space: Int32, _ address: Int32, 
     }
 }
 
+/// The RAM as stored, whatever's paged in: region 0 is main, shadow, ANDY
+/// and HAZEL (offsets 0-&12FFF), region 1 sideways banks (bank << 14 |
+/// offset). `count` bytes from `offset` to `out`. Returns the count.
+@_expose(wasm, "beeb_read_ram")
+@_cdecl("beeb_read_ram")
+public func beeb_read_ram(_ handle: Int32, _ region: Int32, _ offset: Int32, _ count: Int32, _ out: UnsafeMutableRawPointer?) -> Int32 {
+    guard let size = ramRegionSize(region) else { return fail(.invalidArgument, "no RAM region \(region)") }
+    guard offset >= 0, count >= 0, Int(offset) + Int(count) <= size, count == 0 || out != nil else {
+        return fail(.invalidArgument, "region \(region) is \(size) bytes")
+    }
+    return withRunning(handle) { _, machine in
+        guard let out else { return 0 }
+        let bytes = out.assumingMemoryBound(to: UInt8.self)
+        for i in 0..<Int(count) {
+            let at = Int(offset) + i
+            bytes[i] = region == 0 ? machine.peekRAM(at) : machine.peekSideways(bank: at >> 14, at & 0x3FFF)
+        }
+        return count
+    }
+}
+
+/// Sets RAM as stored (regions as beeb_read_ram's; sideways ROM is left
+/// alone). Returns the count, or an error if any of it isn't RAM.
+@_expose(wasm, "beeb_write_ram")
+@_cdecl("beeb_write_ram")
+public func beeb_write_ram(_ handle: Int32, _ region: Int32, _ offset: Int32, _ pointer: UnsafeRawPointer?, _ count: Int32) -> Int32 {
+    guard let size = ramRegionSize(region) else { return fail(.invalidArgument, "no RAM region \(region)") }
+    guard offset >= 0, let data = bytes(pointer, count, limit: size), Int(offset) + data.count <= size else {
+        return fail(.invalidArgument, "region \(region) is \(size) bytes")
+    }
+    return withRunning(handle) { _, machine in
+        for (i, value) in data.enumerated() {
+            let at = Int(offset) + i
+            if region == 0 {
+                machine.pokeRAM(at, value)
+            } else if !machine.pokeSideways(bank: at >> 14, at & 0x3FFF, value) {
+                return fail(.invalidArgument, "sideways bank \(at >> 14) isn't RAM")
+            }
+        }
+        return count
+    }
+}
+
+private func ramRegionSize(_ region: Int32) -> Int? {
+    switch region {
+    case 0: BBCMicro.rawRAMSize
+    case 1: 16 << 14
+    default: nil
+    }
+}
+
 // MARK: Input
 
 /// Presses (`down` 1) or releases (0) the key at `code` in the keyboard
@@ -501,10 +552,26 @@ public func beeb_save_state(_ handle: Int32) -> Int32 {
 @_expose(wasm, "beeb_restore_state")
 @_cdecl("beeb_restore_state")
 public func beeb_restore_state(_ handle: Int32, _ pointer: UnsafeRawPointer?, _ count: Int32) -> Int32 {
+    beeb_restore_state_station(handle, pointer, count, 0)
+}
+
+/// As beeb_restore_state, but with the Econet module's station number
+/// (1-254) in place of the state's (0: the state's). (The links are fixed
+/// when a machine's built; a program's own copy of the number is its
+/// business: see beeb_write_ram.)
+@_expose(wasm, "beeb_restore_state_station")
+@_cdecl("beeb_restore_state_station")
+public func beeb_restore_state_station(_ handle: Int32, _ pointer: UnsafeRawPointer?, _ count: Int32, _ station: Int32) -> Int32 {
     guard let m = lookup(handle) else { return fail(.invalidHandle, "no machine \(handle)") }
+    guard (0...254).contains(station) else { return fail(.invalidArgument, "station 1-254, or 0 for the state's") }
     guard let data = bytes(pointer, count, limit: Limits.stateBytes) else { return fail(.badData, "the state is too big") }
     do {
-        try m.restore(SaveStateFile(data: Data(data)))
+        var file = try SaveStateFile(data: Data(data))
+        if station != 0 {
+            guard file.configuration.econetStation != nil else { return fail(.unsupported, "the state's machine has no Econet module") }
+            file.configuration.econetStation = Int(station)
+        }
+        try m.restore(file)
         return 0
     } catch {
         return fail(.badData, "not a save state MacBeeb can restore: \(error)")

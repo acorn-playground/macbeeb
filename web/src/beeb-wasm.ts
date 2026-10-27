@@ -8,7 +8,7 @@ import { Wasi, WasiExit, type WasiOptions } from "./wasi.ts";
 export { WasiExit };
 
 /** The ABI version this wrapper speaks. */
-export const ABI_VERSION = 3;
+export const ABI_VERSION = 4;
 
 export const Model = { modelA: 0, modelB: 1, bPlus: 2, master128: 3, masterCompact: 4 } as const;
 export type Model = (typeof Model)[keyof typeof Model];
@@ -368,8 +368,23 @@ export class BeebMachine {
   }
 
   /** Becomes the machine in a save state (its model and ROMs included). */
-  restoreState(state: Uint8Array) {
-    this.module.withBytes(state, (p, n) => this.call("beeb_restore_state", p, n));
+  /** Restores a save state; with `station`, as that Econet station instead of the state's. */
+  restoreState(state: Uint8Array, station = 0) {
+    this.module.withBytes(state, (p, n) => this.call("beeb_restore_state_station", p, n, station));
+  }
+
+  /** RAM as stored: region 0 main, shadow, ANDY and HAZEL (0-&12FFF); 1 sideways banks (bank << 14 | offset). */
+  readRAM(region: 0 | 1, offset: number, length: number): Uint8Array {
+    if (length === 0) return new Uint8Array();
+    return this.withScratch(length, (p) => {
+      this.call("beeb_read_ram", region, offset, length, p);
+      return this.module.bytes(p, length).slice();
+    });
+  }
+
+  /** Sets RAM as stored (regions as readRAM's; sideways ROM can't be). */
+  writeRAM(region: 0 | 1, offset: number, data: Uint8Array) {
+    this.module.withBytes(data, (p, n) => this.call("beeb_write_ram", region, offset, p, n));
   }
 
   private withScratch<T>(length: number, body: (pointer: number) => T): T {

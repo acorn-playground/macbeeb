@@ -145,7 +145,7 @@ How it runs:
 
 ## The ABI
 
-Version 3, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift`, `NetworkExports.swift` and `HardDiscExports.swift`), wrapped by `web/src/beeb-wasm.ts`. Version 2 added sound, joysticks, Econet, the 6502 Second Processor and VideoNuLA to version 1. Version 3 adds hard discs, sideways RAM and `beeb_network_run_until_holding`; the rest is unchanged.
+Version 4, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift`, `NetworkExports.swift` and `HardDiscExports.swift`), wrapped by `web/src/beeb-wasm.ts`. Version 2 added sound, joysticks, Econet, the 6502 Second Processor and VideoNuLA to version 1. Version 3 added hard discs, sideways RAM and `beeb_network_run_until_holding`; version 4 adds raw RAM access and restoring a state as another Econet station. The rest is unchanged.
 
 ### Conventions
 
@@ -179,7 +179,7 @@ Version 3, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift`, `N
 
 | Function | |
 |---|---|
-| `beeb_abi_version()` | 3 |
+| `beeb_abi_version()` | 4 |
 | `beeb_create(model)` | A machine, with no ROMs yet. Models: 0 Model A, 1 Model B, 2 B+, 3 Master 128, 4 Master Compact. Returns the handle. |
 | `beeb_load_rom(h, slot, p, n)` | Slot -1 is the OS (16K); 0-15 are sideways banks. A machine that's on is power cycled. |
 | `beeb_set_rtc(h, yy, mm, dd, dow, h, m, s)` | The Master's clock at power on. The default is 2000-01-01 00:00:00, so runs repeat. |
@@ -197,6 +197,8 @@ Version 3, in `Sources/BeebWasm` (`Exports.swift`, `PeripheralExports.swift`, `N
 | `beeb_video_frame_count(h)`, `beeb_video_frame_hash(h)` | The hash is FNV-1a over the frame. |
 | `beeb_screen_text(h)` | BeebCore's `screenText()`: UTF-8 lines. |
 | `beeb_save_state(h)`, `beeb_restore_state(h, p, n)` | The whole machine. A failed restore leaves the machine as it was. |
+| `beeb_restore_state_station(h, p, n, station)` | As `beeb_restore_state`, but the machine's Econet module has `station` (1-254) in place of the state's. A program's own copy of its station number is left as it was. |
+| `beeb_read_ram(h, region, offset, n, out)`, `beeb_write_ram(h, region, offset, p, n)` | RAM as stored, whatever's paged in: region 0 is main RAM, shadow, ANDY and HAZEL (offsets 0-&12FFF: shadow from &8000, ANDY from &10000, HAZEL from &11000); region 1 is the sideways banks (bank << 14 \| offset). Writes to sideways ROM fail. For tools that find and set what a program keeps, not for emulation. |
 | `beeb_release(h)`, `beeb_machine_count()` | |
 | `beeb_audio_start(h, rate)`, `beeb_audio_read(h, out, n)` | Mono float samples at `rate` (8,000-192,000; 0 stops it), from the core's mixer. Samples not read within two seconds are dropped. |
 | `beeb_set_joystick(h, i, x, y, fire)` | Joystick 0 or 1: x and y from -1 (left, down) to 1 (right, up). It stays as set through power cycles. On a Master Compact, joystick 0 is its digital one. |
