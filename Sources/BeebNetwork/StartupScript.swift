@@ -22,7 +22,7 @@ public enum StartupStep: Codable, Sendable, Equatable {
     case ifShowing(String, [StartupStep])
     case pressBreak
     case wait(Double)
-    /// Waits until the machine hasn't sent anything on the network for
+    /// Waits until nothing's gone to or from the machine on the network for
     /// `seconds` (it's finished loading), for up to `timeout`.
     case waitForQuiet(Double, timeout: Double)
 
@@ -101,7 +101,7 @@ public final class StartupScriptRunner: @unchecked Sendable {
             case .wait(let duration):
                 guard now >= start + seconds(duration) else { return false }
             case .waitForQuiet(let quiet, let timeout):
-                let last = max(start, machine.econet?.lastTransmitted ?? 0)
+                let last = max(start, machine.econet?.lastTransmitted ?? 0, machine.econet?.lastAddressed ?? 0)
                 guard now >= last + seconds(quiet) || now >= start + seconds(timeout) else { return false }
             }
             steps.removeFirst()

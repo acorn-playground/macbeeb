@@ -81,7 +81,7 @@ public enum EliteOverEconet {
             // "Load New Commander (Y/N)?" Y: the disk access menu. 2 saves:
             // its name prompt may already have the 2 in it.
             .press("Y"), .wait(1), .press("2"), .wait(1), .press("DELETE"), .press("DELETE"),
-            .type(String(commander.prefix(7)) + "\n"), .wait(3),
+            .wait(1)] + keys(String(commander.prefix(7))) + [.wait(3),
             // "Press Space Or Fire, Commander."
             .press("SPACE"), .wait(3),
         ]
@@ -89,13 +89,8 @@ public enum EliteOverEconet {
             // Pause, then the Network Menu: network, station, port, and
             // reset the scores; then a key once it says OK.
             // Each prompt empties the keyboard buffer: nothing's typed ahead.
-            steps += [.press("COPY"), .press("N"), .wait(2), .type("0\n"), .wait(2), .type("\(scoreboard)\n"), .wait(2),
-                      .type("\(scoreboardPort)\n"), .wait(2), .press("Y"), .wait(3), .press("SPACE"), .wait(2)]
-            // A docked ship only reports when something changes, so if the
-            // scoreboard missed that (busy with another), it'd wait: the
-            // menu again, keeping each answer, reports again.
-            steps += [.wait(5), .press("COPY"), .press("N"), .wait(2), .type("\n"), .wait(2), .type("\n"), .wait(2), .type("\n"),
-                      .wait(2), .press("N"), .wait(3), .press("SPACE"), .wait(2)]
+            steps += [.press("COPY"), .press("N"), .wait(2)] + keys("0") + [.wait(2)] + keys("\(scoreboard)") + [.wait(2)]
+                + keys("\(scoreboardPort)") + [.wait(2), .press("Y"), .wait(3), .press("SPACE"), .wait(2)]
         }
         return steps + [.press("f8")]
     }
@@ -114,21 +109,40 @@ public enum EliteOverEconet {
         return node
     }
 
-    /// The commander a player's script saves, if it's a player's.
+    /// The commander a player's script saves, if it's a player's: the keys
+    /// between the name prompt and its Return.
     public static func commander(in script: [StartupStep]) -> String? {
-        guard let index = script.firstIndex(of: .press("DELETE")).map({ $0 + 2 }), index < script.count,
-              case .type(let text) = script[index], text.hasSuffix("\n") else { return nil }
-        return String(text.dropLast())
+        guard let start = script.firstIndex(of: .press("DELETE")).map({ $0 + 3 }), start < script.count else { return nil }
+        return pressed(in: script[start...])
+    }
+
+    /// The keys pressed from the start of `steps` up to a Return.
+    static func pressed(in steps: ArraySlice<StartupStep>) -> String? {
+        var text = ""
+        for step in steps {
+            guard case .press(let key) = step else { return nil }
+            if key == "RETURN" { return text.isEmpty ? nil : text }
+            text += key
+        }
+        return nil
     }
 
     /// A player's script for another commander, reporting where `script`
     /// does (for a copy of a player).
     public static func playerScript(like script: [StartupStep], commander: String) -> [StartupStep] {
         var scoreboard: Int?
-        if let menu = script.firstIndex(of: .press("COPY")), menu + 5 < script.count, case .type(let text) = script[menu + 5] {
-            scoreboard = Int(text.dropLast())
+        // COPY, N, wait, network keys, wait, then the station's keys.
+        if let menu = script.firstIndex(of: .press("COPY")), let network = script[(menu + 3)...].firstIndex(of: .press("RETURN")),
+           network + 2 < script.count {
+            scoreboard = pressed(in: script[(network + 2)...]).flatMap { Int($0) }
         }
         return playerScript(commander: commander, scoreboard: scoreboard)
+    }
+
+    /// Typing into Elite, which reads the keyboard itself and can miss a
+    /// quick press while it's busy: each key held, then Return.
+    static func keys(_ text: String) -> [StartupStep] {
+        text.map { .press(String($0)) } + [.press("RETURN")]
     }
 
     /// What a Level 3 server types once it's reset: ADFS on the hard disc

@@ -317,7 +317,14 @@ enum NetworkSelfTest {
             guard let scoreboard = session.project.stations.first(where: { $0.name == EliteOverEconet.scoreboardName }) else { return }
             let commanders = session.project.nodes.compactMap { $0.startupScript.flatMap(EliteOverEconet.commander(in:)) }
             var board = ""
-            for _ in 0..<400 {
+            // -MacBeebSelfTestFilm N: station N's screen every second.
+            let film = UserDefaults.standard.integer(forKey: "MacBeebSelfTestFilm")
+            for second in 0..<400 {
+                if film != 0, let node = session.project.stations.first(where: { $0.stationNumber == film }),
+                   let frame = session.controllers[node.id]?.host.frame,
+                   let png = Screenshot.png(pixels: frame.pixels, width: TVOutput.width, height: TVOutput.height) {
+                    try? png.write(to: URL(fileURLWithPath: path.replacingOccurrences(of: ".png", with: String(format: "-film-%03d.png", second))))
+                }
                 board = (try? await session.controllers[scoreboard.id]?.host.performAsync { $0.machine.screenText().joined(separator: "\n") })
                     .flatMap { $0 } ?? ""
                 if commanders.allSatisfy(board.contains) { break }

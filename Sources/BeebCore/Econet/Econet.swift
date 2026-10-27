@@ -31,6 +31,12 @@ public final class Econet {
     /// When the station last sent a frame's byte (the machine's cycles):
     /// for knowing when it's finished loading something.
     public private(set) var lastTransmitted: UInt64 = 0
+    /// When a frame for this station last arrived (the machine's cycles): a
+    /// station waiting for a busy server is quiet, but not finished.
+    public private(set) var lastAddressed: UInt64 = 0
+    /// Whether the line's last symbol was a flag: the next byte starts a
+    /// frame, with its destination.
+    private var frameStarting = false
     /// Sees every CPU access (for tests and debugging).
     var accessObserver: ((String) -> Void)?
 
@@ -149,6 +155,10 @@ public final class Econet {
         for (time, symbol) in symbols {
             events.append((time - byteTime, nil))
             events.append((time, symbol))
+            if case .byte(let destination) = symbol, frameStarting, destination == station {
+                lastAddressed = time
+            }
+            frameStarting = symbol == .flag
         }
         events.sort { $0.time < $1.time }
         // Merge with what's still to come (deliveries overlap by a byte).
