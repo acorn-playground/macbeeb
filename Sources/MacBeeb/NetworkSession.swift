@@ -352,8 +352,8 @@ final class NetworkSession: StationOwner {
     /// Elite over Econet's scoreboard: a machine here called Scoreboard, or
     /// one in the room.
     var scoreboardStation: Int? {
-        project.nodes.first { $0.name == EliteOverEconet.scoreboardName }?.stationNumber
-            ?? remoteStations.first { $0.label.hasPrefix(EliteOverEconet.scoreboardName) }?.station
+        project.nodes.first { EliteOverEconet.isScoreboard($0.name) }?.stationNumber
+            ?? remoteStations.first { EliteOverEconet.isScoreboard($0.label) }?.station
     }
 
     /// A copy of a machine beside it, with the next free station number

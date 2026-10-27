@@ -203,7 +203,7 @@ extension NetworkSelfTest {
                 try? NetworkPackage.save(project, to: url)
                 guard let session = try? NetworkSession.session(for: url),
                       let server = session.project.nodes.first(where: { $0.kind == .fileServer }),
-                      let scoreboard = session.project.nodes.first(where: { $0.name == EliteOverEconet.scoreboardName }) else { return finish() }
+                      let scoreboard = session.project.nodes.first(where: { EliteOverEconet.isScoreboard($0.name) }) else { return finish() }
                 for _ in 0..<120 where !(await screen(session, server.id)).contains("Ready") {
                     try? await Task.sleep(for: .seconds(1))
                 }

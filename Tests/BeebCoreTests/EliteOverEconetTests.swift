@@ -92,6 +92,17 @@ struct EliteOverEconetTests {
 
     /// A copy of a player is another commander, reporting to the same
     /// scoreboard.
+    /// The scoreboard's found by name in a room: the Elite multiplayer
+    /// scoreboard, or "Scoreboard" (older hosts).
+    @Test func remotePlayerFindsTheScoreboardEitherName() {
+        for label in ["Elite multiplayer scoreboard", "Scoreboard"] {
+            let node = EliteOverEconet.remotePlayer(number: 5, joining: [(1, label), (254, "Level 3 File Server")])
+            #expect(EliteOverEconet.playerScript(like: node.startupScript ?? [], commander: "VEGA")
+                    == EliteOverEconet.playerScript(commander: "VEGA", scoreboard: 1), "\(label)")
+        }
+        #expect(!EliteOverEconet.isScoreboard("Cmdr Blake"))
+    }
+
     @Test func copiedPlayerKeepsItsScoreboard() {
         let script = EliteOverEconet.playerScript(commander: "BLAKE", scoreboard: 7, startDelay: 9)
         let copy = EliteOverEconet.playerScript(like: script, commander: "VEGA")

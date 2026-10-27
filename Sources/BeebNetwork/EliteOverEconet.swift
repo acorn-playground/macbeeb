@@ -17,9 +17,16 @@ public enum EliteOverEconet {
     public static let user = "ELITE"
     /// The scoreboard's Econet port.
     public static let scoreboardPort = 100
-    /// The scoreboard machine's name: a remote player looks for a station
-    /// called this in the room.
-    public static let scoreboardName = "Scoreboard"
+    /// The scoreboard machine's name: Mark Moxon's Elite multiplayer
+    /// scoreboard.
+    public static let scoreboardName = "Elite multiplayer scoreboard"
+
+    /// Whether a machine's name, or a room station's label, is the
+    /// scoreboard's: "scoreboard" anywhere in it (networks saved before it
+    /// had its full name call it "Scoreboard"; so do older hosts).
+    public static func isScoreboard(_ name: String) -> Bool {
+        name.range(of: "scoreboard", options: .caseInsensitive) != nil
+    }
 
     /// The hard disc the template's server has.
     public static let disc = BeebROMs.BundledHardDisc.eliteOverEconetFlickerFree
@@ -102,7 +109,7 @@ public enum EliteOverEconet {
     public static func remotePlayer(number: Int, joining stations: [(station: Int, label: String)]) -> NetworkNode {
         let names = Set(stations.map { $0.label.replacingOccurrences(of: "Cmdr ", with: "").uppercased() })
         let commander = commanderName(0, avoiding: names)
-        let scoreboard = stations.first { $0.label.hasPrefix(scoreboardName) }?.station
+        let scoreboard = stations.first { isScoreboard($0.label) }?.station
         var node = NetworkNode(kind: .station, name: "Cmdr \(commander.capitalized)", stationNumber: number, setup: playerSetup,
                                position: CanvasPoint())
         node.startupScript = playerScript(commander: commander, scoreboard: scoreboard)

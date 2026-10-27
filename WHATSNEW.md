@@ -11,7 +11,7 @@ won't build a release without one.
 
 ## 1.5
 
-- **Elite over Econet:** a new Network Studio template with Mark Moxon's multiplayer Elite. A Level 3 file server, a scoreboard and three commanders (a Model B, a 6502 Second Processor and a Master) set themselves up when the network opens; then pick a commander and launch. Add more with **Elite Player** in the palette, or play from another Mac: share the network, and they join with **File ▸ Add Remote Elite…**.
+- **Elite over Econet:** a new Network Studio template with Mark Moxon's multiplayer Elite. A Level 3 file server, the Elite multiplayer scoreboard and three commanders (a Model B, a 6502 Second Processor and a Master) set themselves up when the network opens; then pick a commander and launch. Add more with **Elite Player** in the palette, or play from another Mac: share the network, and they join with **File ▸ Add Remote Elite…**.
 - **Hard discs:** the Acorn SCSI interface and its Winchester discs, as the Level 3 file server uses them.
 - **Station windows:** a network's machines open in windows of their own, side by side or each in full screen, never as tabs of one window.
 - **Welcome to MacBeeb:** a new welcome screen leads to everything: switch on a BBC Micro, browse the Game Library, or build a network in the Network Studio, with things to try. Choose what MacBeeb opens with on it, or in Settings ▸ General: the welcome screen, a BBC Micro, the Game Library or the Network Studio. Window ▸ Welcome to MacBeeb (⇧⌘1) brings it back.

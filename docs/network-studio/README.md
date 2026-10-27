@@ -23,7 +23,7 @@ of one.
 | --- | --- |
 | Econet Demo | A classroom ready to try: a Welcome machine with instructions, two Model Bs, a Master, and demo programs on the file server |
 | The Econet Times | A newsroom: an Editor and three reporters' BBCs, a file server for the stories and a printer server for the paper |
-| Elite over Econet | Mark Moxon's multiplayer Elite: a scoreboard, three commanders (a Model B, a 6502 Second Processor and a Master) and a Level 3 file server |
+| Elite over Econet | Mark Moxon's multiplayer Elite: the Elite multiplayer scoreboard, three commanders (a Model B, a 6502 Second Processor and a Master) and a Level 3 file server |
 | Distributed Mandelbrot | Eight worker BBCs and a Guide machine draw the Mandelbrot set between them over Econet |
 | Mandelbrot in Colour | The same in MODE 2, the Guide's VideoNuLA giving it sixteen colours, which cycle when it's done |
 | Two BBCs | Two Model Bs, stations 1 and 2, and a clock: the smallest network |
@@ -93,7 +93,7 @@ Mark Moxon's multiplayer Elite: every commander plays their own game, and
 their ships report to a scoreboard over the network, with kills, credits,
 legal status and whether they're docked. **File ▸ New Network…**, then
 **Elite over Econet**:
-- a **Scoreboard** (station 1), a Model B running `*ELITE S` on port 100;
+- the **Elite multiplayer scoreboard** (station 1), a Model B running `*ELITE S` on port 100;
 - three commanders, each a different BBC: **Cmdr Blake** (station 2, a Model
   B with 16K of sideways RAM, for the full game), **Cmdr Vega** (3, a Model B
   with a 6502 Second Processor) and **Cmdr Rigel** (4, a Master 128);

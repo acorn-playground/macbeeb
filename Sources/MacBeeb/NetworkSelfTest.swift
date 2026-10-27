@@ -314,7 +314,7 @@ enum NetworkSelfTest {
         Task { @MainActor in
             let start = Date()
             var report = ""
-            guard let scoreboard = session.project.stations.first(where: { $0.name == EliteOverEconet.scoreboardName }) else { return }
+            guard let scoreboard = session.project.stations.first(where: { EliteOverEconet.isScoreboard($0.name) }) else { return }
             let commanders = session.project.nodes.compactMap { $0.startupScript.flatMap(EliteOverEconet.commander(in:)) }
             var board = ""
             // -MacBeebSelfTestFilm N: station N's screen every second.
