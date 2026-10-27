@@ -73,17 +73,19 @@ final class WasmNetwork {
 
     /// Runs every machine `cycles` (rounded up to whole quanta), or
     /// (`untilHolding`) until the gateway's holding the line for an answer
-    /// from the room. Returns the cycles run.
+    /// from the room, after at least one quantum (in which the gateway
+    /// takes in what the room's sent: perhaps the answer). Returns the
+    /// cycles run.
     func run(_ cycles: Int, untilHolding: Bool = false) -> Int {
         let running = attachMachines()
         let quantum = bus.delay
         var done = 0
         while done < cycles {
-            if untilHolding, let gateway, case .holding = gateway.activity { break }
             bus.beginQuantum()
             for machine in running { machine.run(cycles: quantum) }
             bus.endQuantum(cycles: quantum)
             done += quantum
+            if untilHolding, let gateway, case .holding = gateway.activity { break }
         }
         return done
     }
@@ -173,8 +175,9 @@ public func beeb_network_run(_ handle: Int32, _ cycles: Int32) -> Int32 {
 /// As beeb_network_run, but stopping (at the end of a quantum) once the
 /// gateway's holding the line for an answer from the room: a host that
 /// runs the network only when there's something to do stops there, and
-/// carries on when the answer comes. Returns the cycles run (0 if it's
-/// holding already).
+/// carries on when the answer comes. It always runs one quantum, in which
+/// the gateway takes in any messages it's been given. Returns the cycles
+/// run.
 @_expose(wasm, "beeb_network_run_until_holding")
 @_cdecl("beeb_network_run_until_holding")
 public func beeb_network_run_until_holding(_ handle: Int32, _ cycles: Int32) -> Int32 {

@@ -217,7 +217,7 @@ Machines and networks share one numbering of handles.
 | `beeb_network_create(clock)` | An Econet line, with a clock of `clock` bits a second (200,000 is usual; 0 is none). At most 8. |
 | `beeb_network_add(n, h)`, `beeb_network_remove(n, h)` | Plugs a machine in, or takes it out. A machine's module, if it has one, joins the line. |
 | `beeb_network_run(n, cycles)` | Runs every machine together, in quanta of the line's delay (32 cycles): each runs a quantum in turn, then the line delivers what they sent, as `NetworkHost` does. Returns the cycles run, a whole number of quanta. A machine on a network refuses `beeb_run`. |
-| `beeb_network_run_until_holding(n, cycles)` | As `beeb_network_run`, but it stops at the end of the quantum in which the gateway starts holding the line for an answer from the room. |
+| `beeb_network_run_until_holding(n, cycles)` | As `beeb_network_run`, but it stops at the end of a quantum in which the gateway is holding the line for an answer from the room. It always runs at least one, in which the gateway takes in what it's been given (perhaps the answer). |
 | `beeb_network_count(n, which)` | 0: frames seen on the line. 1: byte-times spoiled by collisions. |
 | `beeb_network_release(n)` | The machines carry on alone. |
 | `beeb_gateway_attach(n, on)` | Puts BeebCore's Internet gateway (`EconetGateway`) on the line, or takes it off. |
