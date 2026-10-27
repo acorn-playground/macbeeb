@@ -38,11 +38,52 @@ public struct Invite: Codable, Sendable, Equatable {
     public var id: String
     public var code: String
     public var url: String
-    public var expiresAt: String
-    public var maxUses: Int
+    /// Nil: it never expires.
+    public var expiresAt: String?
+    /// Nil: any number of people can use it.
+    public var maxUses: Int?
 
     /// The link's token: what follows /join/.
     public var token: String? { url.components(separatedBy: "/join/").last }
+
+    /// When it stops working, if it does.
+    public var expiry: Date? {
+        expiresAt.flatMap { (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse($0)) ?? (try? Date($0, strategy: .iso8601)) }
+    }
+}
+
+/// How long a new invitation lasts. One that lasts for good is for any
+/// number of people too: a standing code for a network that's always there.
+public enum InvitationLife: String, CaseIterable, Codable, Sendable, Identifiable {
+    case hour, day, week, forever
+
+    public var id: Self { self }
+
+    public var displayName: String {
+        switch self {
+        case .hour: "1 hour"
+        case .day: "1 day"
+        case .week: "1 week"
+        case .forever: "Never expires"
+        }
+    }
+
+    /// Nil: no limit.
+    var ttlSeconds: Int? {
+        switch self {
+        case .hour: 3_600
+        case .day: 86_400
+        case .week: 7 * 86_400
+        case .forever: nil
+        }
+    }
+
+    var maxUses: Int? { self == .forever ? nil : 20 }
+
+    /// As the service takes it: a number, or null for no limit.
+    var body: [String: Any] {
+        ["ttlSeconds": ttlSeconds.map { $0 as Any } ?? NSNull(), "maxUses": maxUses.map { $0 as Any } ?? NSNull()]
+    }
 }
 
 public struct CreatedRoom: Codable, Sendable {
@@ -58,7 +99,8 @@ public struct InvitePreview: Codable, Sendable, Equatable {
     public var room: RoomView
     public var participants: Int
     public var stations: [PreviewStation]
-    public var inviteExpiresAt: String
+    /// Nil: it never expires.
+    public var inviteExpiresAt: String?
 
     public struct PreviewStation: Codable, Sendable, Equatable {
         public var station: Int
@@ -134,9 +176,12 @@ public struct RoomAPI: Sendable {
         try await request("GET", ".well-known/acorn-econet", as: ServiceInfo.self)
     }
 
-    public func createRoom(name: String, description: String = "", displayName: String, screenSharing: Bool = false) async throws -> CreatedRoom {
+    /// A new room, with an invitation lasting `invitation`.
+    public func createRoom(name: String, description: String = "", displayName: String, screenSharing: Bool = false,
+                           invitation: InvitationLife = .day) async throws -> CreatedRoom {
         try await request("POST", "v1/rooms", body: ["name": name, "description": description, "displayName": displayName,
-                                                     "client": Self.client, "screenSharing": screenSharing], as: CreatedRoom.self)
+                                                     "client": Self.client, "screenSharing": screenSharing, "invite": invitation.body],
+                          as: CreatedRoom.self)
     }
 
     /// A code (as typed) or a link's token: the room it's for, without
@@ -173,9 +218,8 @@ public struct RoomAPI: Sendable {
         return try await request("PATCH", "v1/rooms/\(roomId)", body: body, token: ownerToken, as: RoomView.self)
     }
 
-    public func newInvite(roomId: String, ownerToken: String, ttlSeconds: Int = 86_400, maxUses: Int = 20) async throws -> Invite {
-        try await request("POST", "v1/rooms/\(roomId)/invites", body: ["ttlSeconds": ttlSeconds, "maxUses": maxUses],
-                          token: ownerToken, as: Invite.self)
+    public func newInvite(roomId: String, ownerToken: String, lasting life: InvitationLife = .day) async throws -> Invite {
+        try await request("POST", "v1/rooms/\(roomId)/invites", body: life.body, token: ownerToken, as: Invite.self)
     }
 
     public func revokeInvite(roomId: String, ownerToken: String, inviteId: String) async throws {

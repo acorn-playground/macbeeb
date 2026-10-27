@@ -39,8 +39,10 @@ export interface Invite {
   id: string;
   code: string;
   url: string;
-  expiresAt: string;
-  maxUses: number;
+  /** Null: it never expires. */
+  expiresAt: string | null;
+  /** Null: any number of people can use it. */
+  maxUses: number | null;
 }
 
 export interface InvitePreview {
@@ -48,7 +50,8 @@ export interface InvitePreview {
   room: RoomView;
   participants: number;
   stations: { station: number; kind: string; label: string; role: string }[];
-  inviteExpiresAt: string;
+  /** Null: it never expires. */
+  inviteExpiresAt: string | null;
 }
 
 /** What a member keeps to come back to a room. */
@@ -169,8 +172,9 @@ export class RoomAPI {
     return (await this.request<{ ticket: string }>("POST", `v1/rooms/${roomId}/tickets`, undefined, memberToken)).ticket;
   }
 
-  newInvite(roomId: string, ownerToken: string) {
-    return this.request<Invite>("POST", `v1/rooms/${roomId}/invites`, { ttlSeconds: 86_400, maxUses: 20 }, ownerToken);
+  /** An invitation for `ttlSeconds` and `maxUses` (null: no limit). */
+  newInvite(roomId: string, ownerToken: string, ttlSeconds: number | null = 86_400, maxUses: number | null = 20) {
+    return this.request<Invite>("POST", `v1/rooms/${roomId}/invites`, { ttlSeconds, maxUses }, ownerToken);
   }
 
   leave(roomId: string, memberToken: string) {

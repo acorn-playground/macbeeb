@@ -121,6 +121,28 @@ struct InternetEconetLiveTests {
         #expect(Self.run(sides, seconds: 10) { sides[1].screen(0).contains("FROM 1 GOT HELLO ECONET") }, "\(sides[1].screen(0))")
     }
 
+    @Test func invitationsThatNeverExpireDecode() throws {
+        let forever = try JSONDecoder().decode(Invite.self, from: Data(#"{"id":"a","code":"ACRN-0000-0000-0000","url":"https://x/join/r.s","expiresAt":null,"maxUses":null}"#.utf8))
+        #expect(forever.expiry == nil && forever.maxUses == nil)
+        let day = try JSONDecoder().decode(Invite.self, from: Data(#"{"id":"a","code":"c","url":"u","expiresAt":"2026-10-28T09:00:00.000Z","maxUses":20}"#.utf8))
+        #expect(day.expiry == Date(timeIntervalSince1970: 1_793_178_000))
+        #expect(InvitationLife.forever.body["ttlSeconds"] is NSNull && InvitationLife.forever.body["maxUses"] is NSNull)
+        #expect(InvitationLife.week.body["ttlSeconds"] as? Int == 604_800)
+    }
+
+    /// A room whose code never runs out (a service with permanent-invites).
+    @Test(.enabled(if: service != nil)) func permanentInvitation() async throws {
+        let api = RoomAPI(service: Self.service!)
+        let created = try await api.createRoom(name: "MacBeeb permanent", displayName: "Host", invitation: .forever)
+        defer { Task { try? await api.close(roomId: created.roomId, ownerToken: created.ownerToken) } }
+        #expect(created.invite.expiresAt == nil && created.invite.maxUses == nil)
+        #expect(try await api.resolve(code: created.invite.code).inviteExpiresAt == nil)
+        let hour = try await api.newInvite(roomId: created.roomId, ownerToken: created.ownerToken, lasting: .hour)
+        let left = try #require(hour.expiry).timeIntervalSinceNow
+        #expect(left > 3_500 && left <= 3_600)
+        #expect(hour.maxUses == 20)
+    }
+
     static let invite = ProcessInfo.processInfo.environment["MACBEEB_ECONET_INVITE"]
 
     /// In a room someone else made (MACBEEB_ECONET_INVITE: its code), station

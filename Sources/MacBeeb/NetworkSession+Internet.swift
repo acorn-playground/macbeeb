@@ -83,11 +83,12 @@ extension NetworkSession {
 
     /// Makes a private room on `service` and shares `shared` into it;
     /// `screenSharing`: members may show their screens, `showsScreens`: this
-    /// network shows its.
-    func share(on service: URL, name: String, shared: Set<UUID>, screenSharing: Bool = false, showsScreens: Bool = false) async throws {
+    /// network shows its; `invitation`: how long its first invitation lasts.
+    func share(on service: URL, name: String, shared: Set<UUID>, screenSharing: Bool = false, showsScreens: Bool = false,
+               invitation: InvitationLife = .day) async throws {
         let api = RoomAPI(service: service)
         let created = try await api.createRoom(name: name, displayName: Self.roomDisplayName.isEmpty ? "Host" : Self.roomDisplayName,
-                                               screenSharing: screenSharing)
+                                               screenSharing: screenSharing, invitation: invitation)
         let credentials = RoomCredentials(participantId: created.participantId, memberToken: created.memberToken,
                                           ownerToken: created.ownerToken)
         try Self.credentialStore.save(credentials, service: service, roomId: created.roomId)
@@ -124,9 +125,9 @@ extension NetworkSession {
 
     private var roomAPI: RoomAPI? { project.internetRoom.map { RoomAPI(service: $0.service) } }
 
-    func newInvitation() async throws {
+    func newInvitation(lasting life: InvitationLife = .day) async throws {
         guard let api = roomAPI, let link = project.internetRoom, let owner = ownerToken else { return }
-        currentInvite = try await api.newInvite(roomId: link.roomId, ownerToken: owner)
+        currentInvite = try await api.newInvite(roomId: link.roomId, ownerToken: owner, lasting: life)
     }
 
     /// Withdraws the invitation shown: its link and code stop working.

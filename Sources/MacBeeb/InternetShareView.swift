@@ -18,6 +18,8 @@ struct InternetShareView: View {
     @State private var copied: String?
     @State private var allowScreens = false
     @State private var showMine = false
+    /// How long invitations last (the last choice, for next time).
+    @AppStorage("InternetInvitationLife") private var invitationLife: InvitationLife = .day
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -67,6 +69,7 @@ struct InternetShareView: View {
             Form {
                 TextField("Network name", text: $roomName)
                 TextField("Your name", text: $displayName, prompt: Text("Shown to people who join"))
+                lifePicker("Invitation lasts")
                 LabeledContent("Service") {
                     Text(service.host ?? service.absoluteString)
                         .foregroundStyle(.secondary)
@@ -146,7 +149,7 @@ struct InternetShareView: View {
             defer { busy = false }
             do {
                 try await session.share(on: service, name: roomName.trimmingCharacters(in: .whitespaces), shared: shared,
-                                        screenSharing: allowScreens, showsScreens: showMine)
+                                        screenSharing: allowScreens, showsScreens: showMine, invitation: invitationLife)
             } catch {
                 self.error = "Couldn't create the network: \(error)"
             }
@@ -261,30 +264,51 @@ struct InternetShareView: View {
                     Spacer()
                     copyButton(invite.url, label: "Copy Link")
                 }
+                Text(Self.terms(of: invite))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 HStack {
-                    Text("Works for 24 hours, for up to \(invite.maxUses) people.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    lifePicker("Lasts")
+                        .fixedSize()
+                        .help("Choosing makes a new invitation that lasts this long; the one before still works until it expires or you withdraw it")
+                        .onChange(of: invitationLife) { newInvitation() }
                     Spacer()
                     Button("Withdraw") { Task { try? await session.withdrawInvitation() } }
                         .help("The link and code stop working; anyone already in stays")
-                    Button("New Invitation") { Task { try? await session.newInvitation() } }
+                    Button("New Invitation") { newInvitation() }
                 }
             } else {
                 HStack {
                     Text("Make an invitation to let someone join: a link to send, or a code to read out.")
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("New Invitation") {
-                        Task {
-                            do { try await session.newInvitation() } catch { self.error = "\(error)" }
-                        }
-                    }
+                    lifePicker("Lasts")
+                        .fixedSize()
+                    Button("New Invitation") { newInvitation() }
                 }
             }
         }
         .padding(12)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func lifePicker(_ label: String) -> some View {
+        Picker(label, selection: $invitationLife) {
+            ForEach(InvitationLife.allCases) { Text($0.displayName).tag($0) }
+        }
+    }
+
+    private func newInvitation() {
+        Task {
+            do { try await session.newInvitation(lasting: invitationLife) } catch { self.error = "Couldn't make an invitation: \(error)" }
+        }
+    }
+
+    /// How long an invitation works, and for how many.
+    static func terms(of invite: Invite) -> String {
+        let people = invite.maxUses.map { "for up to \($0) people" } ?? "for any number of people"
+        guard let expiry = invite.expiry else { return "Never expires, \(people), until you withdraw it or stop sharing." }
+        return "Works until \(expiry.formatted(date: .abbreviated, time: .shortened)), \(people)."
     }
 
     private func copyButton(_ text: String, label: String) -> some View {
