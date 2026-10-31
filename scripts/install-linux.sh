@@ -6,58 +6,67 @@
 #   scripts/install-linux.sh                    # ~/.local
 #   sudo scripts/install-linux.sh --prefix /usr/local
 #   scripts/install-linux.sh --uninstall
+#   scripts/install-linux.sh --stage DIR        # builds it into DIR only
 #
-# It lays out:
-#   PREFIX/lib/macbeeb/          MacBeeb, macbeeb-mcp, beeb, beebasm, baron,
-#                                their resource bundles, and share/ (the
-#                                guides, credits, release notes, licences)
-#   PREFIX/bin/                  macbeeb, macbeeb-mcp, beeb (links)
-#   PREFIX/share/applications, icons, mime, metainfo: the desktop's files
+# It builds optimised, with Swift's own libraries linked in (so it runs
+# without Swift, and a toolchain changing later doesn't break it), lays the
+# files out in .build/linux/stage as a release's .tar.xz has them, then
+# installs them with Resources/Linux/install.sh (which says where they go).
+# --stage lays them out in DIR and stops there (scripts/package-linux.sh).
 set -e
+CALLER=$(pwd)
 cd "$(dirname "$0")/.."
 
-PREFIX="$HOME/.local"
+PREFIX=
+STAGE=
 UNINSTALL=
 while [ $# -gt 0 ]; do
     case "$1" in
         --prefix) PREFIX="$2"; shift 2 ;;
         --prefix=*) PREFIX="${1#*=}"; shift ;;
         --uninstall) UNINSTALL=1; shift ;;
-        *) echo "usage: $0 [--prefix DIR] [--uninstall]" >&2; exit 2 ;;
+        --stage) STAGE="$2"; shift 2 ;;
+        --stage=*) STAGE="${1#*=}"; shift ;;
+        *) echo "usage: $0 [--prefix DIR] [--uninstall] [--stage DIR]" >&2; exit 2 ;;
     esac
 done
 
-APP=com.accidentalfish.MacBeeb
-LIB="$PREFIX/lib/macbeeb"
-SHARE="$PREFIX/share"
-
-update_caches() {
-    command -v update-desktop-database > /dev/null && update-desktop-database -q "$SHARE/applications" || true
-    command -v update-mime-database > /dev/null && update-mime-database "$SHARE/mime" > /dev/null || true
-    command -v gtk4-update-icon-cache > /dev/null && gtk4-update-icon-cache -q -t -f "$SHARE/icons/hicolor" || true
+# Runs the installer, with the prefix if one was given.
+installer() {
+    if [ -n "$PREFIX" ]; then "$@" --prefix "$PREFIX"; else "$@"; fi
 }
 
 if [ -n "$UNINSTALL" ]; then
-    rm -rf "$LIB"
-    rm -f "$PREFIX/bin/macbeeb" "$PREFIX/bin/macbeeb-mcp" "$PREFIX/bin/beeb"
-    rm -f "$SHARE/applications/$APP.desktop" "$SHARE/metainfo/$APP.metainfo.xml" "$SHARE/mime/packages/$APP.xml"
-    rm -f "$SHARE/icons/hicolor/scalable/apps/$APP.svg" "$SHARE/icons/hicolor/symbolic/apps/$APP-symbolic.svg"
-    update_caches
-    echo "Uninstalled MacBeeb from $PREFIX (your games, settings and networks in ~/.local/share/MacBeeb are kept)"
-    exit 0
+    installer Resources/Linux/install.sh --uninstall
+    exit
+fi
+
+INSTALL=
+if [ -z "$STAGE" ]; then
+    STAGE=.build/linux/stage
+    INSTALL=1
+else
+    case "$STAGE" in /*) ;; *) STAGE="$CALLER/$STAGE" ;; esac
+    # (It's emptied first: only if it's empty already, or an earlier stage.)
+    if [ -d "$STAGE" ] && [ ! -f "$STAGE/install.sh" ] && [ -n "$(ls -A "$STAGE")" ]; then
+        echo "install-linux: $STAGE isn't empty" >&2
+        exit 1
+    fi
 fi
 
 VERSION="${VERSION:-$(grep -m1 '^## ' WHATSNEW.md | cut -c4- | tr -d ' ')}"
 
-swift build -c release --product MacBeeb
-swift build -c release --product macbeeb-mcp
-swift build -c release --product beeb
-BIN=$(swift build -c release --show-bin-path)
+for product in MacBeeb macbeeb-mcp beeb; do
+    swift build -c release --static-swift-stdlib --product "$product"
+done
+BIN=$(swift build -c release --static-swift-stdlib --show-bin-path)
 # BeebAsm and Baron, for assembling from VS Code and the agent tools.
 make beebasm baron
 
-rm -rf "$LIB"
-mkdir -p "$LIB/share" "$PREFIX/bin"
+LIB="$STAGE/lib/macbeeb"
+rm -rf "$STAGE"
+mkdir -p "$LIB/share"
+cp Resources/Linux/install.sh "$STAGE/"
 cp "$BIN/MacBeeb" "$BIN/macbeeb-mcp" "$BIN/beeb" "$LIB/"
 # The ROMs, discs and sounds, and the library's catalogue and covers.
 for target in BeebROMs BeebLibrary; do
@@ -66,6 +75,8 @@ for target in BeebROMs BeebLibrary; do
     done
 done
 cp .build/beebasm/beebasm .build/baron/baron "$LIB/"
+# (Without their symbols and debugging information, a third of their size.)
+strip "$LIB/MacBeeb" "$LIB/macbeeb-mcp" "$LIB/beeb" "$LIB/beebasm" "$LIB/baron"
 
 # The guides (Help), credits and release notes, as the Mac bundles them.
 mkdir -p "$LIB/share/guides"
@@ -79,18 +90,18 @@ cp ThirdParty/baron/LICENSE "$LIB/share/Baron-LICENSE.txt"
 cp ThirdParty/baron/extern/richc/LICENSE "$LIB/share/richc-LICENSE.txt"
 echo "$VERSION" > "$LIB/share/version"
 
-ln -sf "$LIB/MacBeeb" "$PREFIX/bin/macbeeb"
-ln -sf "$LIB/macbeeb-mcp" "$PREFIX/bin/macbeeb-mcp"
-ln -sf "$LIB/beeb" "$PREFIX/bin/beeb"
+# The desktop's files (the launcher's @EXEC@ is filled in as it's installed).
+APP=com.accidentalfish.MacBeeb
+mkdir -p "$STAGE/share/applications" "$STAGE/share/metainfo" "$STAGE/share/mime/packages" \
+    "$STAGE/share/icons/hicolor/scalable/apps" "$STAGE/share/icons/hicolor/symbolic/apps"
+cp "Resources/Linux/$APP.desktop" "$STAGE/share/applications/"
+cp "Resources/Linux/$APP.metainfo.xml" "$STAGE/share/metainfo/"
+cp "Resources/Linux/$APP.xml" "$STAGE/share/mime/packages/"
+cp "Resources/Linux/icons/hicolor/scalable/apps/$APP.svg" "$STAGE/share/icons/hicolor/scalable/apps/"
+cp "Resources/Linux/icons/hicolor/symbolic/apps/$APP-symbolic.svg" "$STAGE/share/icons/hicolor/symbolic/apps/"
 
-# The desktop's files: the launcher, icons, file types, app store details.
-mkdir -p "$SHARE/applications" "$SHARE/metainfo" "$SHARE/mime/packages" \
-    "$SHARE/icons/hicolor/scalable/apps" "$SHARE/icons/hicolor/symbolic/apps"
-sed "s|@EXEC@|$LIB/MacBeeb|g" "Resources/Linux/$APP.desktop" > "$SHARE/applications/$APP.desktop"
-cp "Resources/Linux/$APP.metainfo.xml" "$SHARE/metainfo/"
-cp "Resources/Linux/$APP.xml" "$SHARE/mime/packages/"
-cp "Resources/Linux/icons/hicolor/scalable/apps/$APP.svg" "$SHARE/icons/hicolor/scalable/apps/"
-cp "Resources/Linux/icons/hicolor/symbolic/apps/$APP-symbolic.svg" "$SHARE/icons/hicolor/symbolic/apps/"
-update_caches
-
-echo "Installed MacBeeb $VERSION in $PREFIX: run macbeeb, or find MacBeeb in your applications"
+if [ -n "$INSTALL" ]; then
+    installer "$STAGE/install.sh"
+else
+    echo "Built MacBeeb $VERSION in $STAGE"
+fi

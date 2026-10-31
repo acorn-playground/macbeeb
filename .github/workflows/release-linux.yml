@@ -1,0 +1,88 @@
+# The Linux packages for a release. When scripts/release.sh --publish makes
+# the GitHub release (on the Mac), this builds MacBeeb for Linux on Ubuntu
+# 26.04, for Intel and Arm, and attaches each's .tar.xz and .deb to the
+# release beside the Mac's disk image (scripts/package-linux.sh). Run it by
+# hand (Actions > Linux release > Run workflow) with a release's tag to make
+# them again: they replace those attached.
+
+name: Linux release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The release's tag, such as v1.6"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  package:
+    strategy:
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    container: ubuntu:26.04
+    timeout-minutes: 90
+    env:
+      SWIFT_VERSION: "6.4.1"
+    steps:
+      - name: Packages
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git curl ca-certificates make gcc g++ libc6-dev pkg-config python3 dpkg-dev xz-utils \
+            libgtk-4-dev libadwaita-1-dev libepoxy-dev libsdl3-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libcairo2-dev zlib1g-dev \
+            libcurl4-openssl-dev libxml2-dev
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          submodules: recursive
+
+      - name: Swift toolchain (swiftly)
+        run: |
+          curl -fsSLO "https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz"
+          tar zxf "swiftly-$(uname -m).tar.gz"
+          ./swiftly init --quiet-shell-followup --assume-yes --skip-install
+          . "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
+          swiftly install --use "$SWIFT_VERSION"
+          echo "$(dirname "$(command -v swift)")" >> "$GITHUB_PATH"
+
+      - name: Package
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          scripts/package-linux.sh "${TAG#v}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.runner }}
+          path: .build/releases/*/linux/*
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  attach:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+
+      - name: Attach them to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l packages
+          gh release upload "$TAG" packages/* --clobber --repo "$GITHUB_REPOSITORY"

@@ -6,8 +6,8 @@ import FoundationNetworking
 
 /// Help > Check for Updates: whether there's a newer release than this
 /// one on GitHub, and how to get it. (The Mac's updates itself with
-/// Sparkle; on Linux MacBeeb's built from its source, so this says what's
-/// new and how to update.) Only when asked: nothing's checked otherwise.
+/// Sparkle; on Linux this opens the release's page, with its notes and its
+/// .deb and .tar.xz.) Only when asked: nothing's checked otherwise.
 @MainActor
 enum Updates {
     static let latest = URL(string: "https://api.github.com/repos/acorn-playground/macbeeb/releases/latest")!
@@ -47,12 +47,12 @@ enum Updates {
                 return
             }
             AlertDialog("MacBeeb \(version) is available",
-                        body: "You have \(current). To update, in your copy of MacBeeb’s source: git pull, then scripts/install-linux.sh.")
+                        body: "You have \(current). Its release page has what’s new, and the downloads: the .deb for Ubuntu and Debian, or the .tar.xz for other distributions. (Built from the source? git pull, then scripts/install-linux.sh.)")
                 .response("later", "_Later")
-                .response("notes", "_Release Notes", .suggested)
-                .defaults(default: "notes", close: "later")
+                .response("release", "_Release Page", .suggested)
+                .defaults(default: "release", close: "later")
                 .choose(over: parent) { response in
-                    if response == "notes", let url = URL(string: release.html_url) {
+                    if response == "release", let url = URL(string: release.html_url) {
                         Platform.open(url)
                     }
                 }

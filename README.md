@@ -28,8 +28,21 @@ Applications:
 
 MacBeeb runs on Linux too, as a GNOME app (GTK 4 and libadwaita), built from
 the same source: the same emulation and the same features, with the
-interface GNOME's. It's developed on Ubuntu 26.04. Build and install it from
-a clone (with Swift 6.4 from [swift.org](https://www.swift.org/install)):
+interface GNOME's. It's developed on Ubuntu 26.04, and needs a distribution
+as recent (libadwaita 1.8 and SDL 3). The
+[latest release](https://github.com/acorn-playground/macbeeb/releases/latest)
+has it for Intel and Arm:
+
+- **Ubuntu and Debian:** `sudo apt install ./macbeeb_VERSION_amd64.deb` (or
+  `_arm64`), which installs what it needs too.
+- **Other distributions:** unpack `MacBeeb-VERSION-linux-x86_64.tar.xz` (or
+  `aarch64`) and run its `./install.sh`: for you alone, in `~/.local`, or
+  `sudo ./install.sh --prefix /usr/local` for everyone (`--uninstall`
+  removes it). It needs GTK 4, libadwaita, SDL 3 and GStreamer installed.
+
+Help > Check for Updates says when there's a newer one. Or build and
+install it from a clone (with Swift 6.4 from
+[swift.org](https://www.swift.org/install)):
 
 ```
 git submodule update --init --recursive

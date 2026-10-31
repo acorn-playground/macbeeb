@@ -16,8 +16,31 @@ scripts/install-linux.sh       # builds it optimised and installs it in ~/.local
 The installed app lives in `PREFIX/lib/macbeeb` (with the MCP server, the
 `beeb` tool, BeebAsm, Baron and the guides), linked from `PREFIX/bin`, with
 its desktop entry, icon (drawn by `Tools/icon/linux.py`), file types and
-AppStream details in `PREFIX/share`. `.github/workflows/linux.yml` builds
-and tests on Ubuntu 26.04.
+AppStream details in `PREFIX/share`. It's built optimised and stripped,
+with Swift's own libraries linked in, so it runs without Swift; GTK,
+libadwaita, SDL and GStreamer are the system's. `install-linux.sh` lays the
+files out in `.build/linux/stage` first, as a release's `.tar.xz` has them,
+and installs them with `Resources/Linux/install.sh`, the archive's
+`install.sh`. `.github/workflows/linux.yml` builds and tests on Ubuntu
+26.04.
+
+### Releases
+
+A release's Linux packages come from `.github/workflows/release-linux.yml`.
+When `scripts/release.sh VERSION --publish` (on the Mac) makes the GitHub
+release, the workflow builds MacBeeb on Ubuntu 26.04 for Intel and Arm,
+with `scripts/package-linux.sh VERSION`, and attaches what it makes to the
+release, beside the Mac's disk image:
+
+| File | For |
+| --- | --- |
+| `macbeeb_VERSION_amd64.deb`, `_arm64.deb` | Ubuntu and Debian: its dependencies are worked out from what the programs link (`dpkg-shlibdeps`), so apt installs them; GStreamer's encoders, for recordings, are recommended |
+| `MacBeeb-VERSION-linux-x86_64.tar.xz`, `-aarch64` | Other distributions: unpacked, `./install.sh` (as `install-linux.sh`, without building) |
+
+Run by hand (Actions > Linux release > Run workflow, with the tag), it
+makes them again and replaces those attached. `scripts/package-linux.sh`
+also runs locally, for this computer's processor, into
+`.build/releases/VERSION/linux` (it needs `dpkg-dev`).
 
 ## How the code divides
 
@@ -161,7 +184,8 @@ the installer does) to play.
 ## What's different from the Mac
 
 - **Updates.** There's no Sparkle: Help > Check for Updates asks GitHub
-  for the latest release and says how to update from the source.
+  for the latest release and, if it's newer, opens its page, with the
+  `.deb` and `.tar.xz` to download (or says how to update from the source).
 - **Quick Look.** Linux has no equivalent, so there's no previewer for
   discs and tapes in the file manager (they show MacBeeb's file types and
   open in it).

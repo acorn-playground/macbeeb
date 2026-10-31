@@ -4,6 +4,9 @@
 #   scripts/release.sh VERSION            build, sign, notarise and staple
 #   scripts/release.sh VERSION --publish  ...then tag and make a GitHub release
 #
+# Publishing starts .github/workflows/release-linux.yml, which builds the
+# Linux packages and attaches them to the same release (docs/linux.md).
+#
 # Produces, in .build/releases/VERSION:
 #   MacBeeb-VERSION.dmg   for downloading
 #   MacBeeb-VERSION.zip   for Sparkle
