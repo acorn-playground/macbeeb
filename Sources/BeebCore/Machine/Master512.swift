@@ -27,7 +27,7 @@
 //   (as BeebEm's Reset). The Tube's P bit holds the CPU in reset (as on the
 //   real board; BeebEm ignores it), leaving memory alone.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation
@@ -237,10 +237,12 @@ public final class Master512: I80186Bus {
         debt = s.debt
     }
 
-    /// (Stored as it is where there's no Compression framework.)
+    /// (On Linux, by BeebCore's own LZ4; stored as it is on WebAssembly.)
     static func compress(_ data: Data) -> Data {
         #if canImport(Darwin)
         (try? (data as NSData).compressed(using: .lz4) as Data) ?? data
+        #elseif os(Linux)
+        LZ4.compress(data)
         #else
         data
         #endif

@@ -1,7 +1,9 @@
 import BeebCore
 import Foundation
+#if canImport(ImageIO)
 import ImageIO
 import UniformTypeIdentifiers
+#endif
 
 /// A game the user added to the bookshelf themselves: a disc image, a
 /// cover, or both, and how to play it.
@@ -184,12 +186,38 @@ public actor MyGames {
         let name = url.lastPathComponent
         guard isCoverName(url) else { throw MyGamesError.notAnImage(name) }
         let data = try read(url, limit: maxCoverSize)
+        #if canImport(ImageIO)
         guard let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) > 0,
               CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else {
             throw MyGamesError.notAnImage(name)
         }
+        #else
+        guard coverDecodes(data) else { throw MyGamesError.notAnImage(name) }
+        #endif
         return data
     }
+
+    #if !canImport(ImageIO)
+    /// Whether a picture can be shown, where there's no ImageIO (Linux):
+    /// the app decodes it with GDK; without the app, it's whether it looks
+    /// like one of the cover formats.
+    public nonisolated(unsafe) static var coverDecodes: @Sendable (Data) -> Bool = looksLikeCover
+
+    /// Whether `data` starts as a cover format's files do.
+    public nonisolated static func looksLikeCover(_ data: Data) -> Bool {
+        let bytes = [UInt8](data.prefix(12))
+        func starts(_ prefix: [UInt8], at offset: Int = 0) -> Bool {
+            bytes.count >= offset + prefix.count && Array(bytes[offset..<offset + prefix.count]) == prefix
+        }
+        return starts([0x89, 0x50, 0x4E, 0x47]) // PNG
+            || starts([0xFF, 0xD8, 0xFF]) // JPEG
+            || starts(Array("GIF8".utf8))
+            || starts([0x49, 0x49, 0x2A, 0x00]) || starts([0x4D, 0x4D, 0x00, 0x2A]) // TIFF
+            || (starts(Array("RIFF".utf8)) && starts(Array("WEBP".utf8), at: 8))
+            || starts(Array("BM".utf8))
+            || starts(Array("ftyp".utf8), at: 4) // HEIC
+    }
+    #endif
 
     private nonisolated static func read(_ url: URL, limit: Int64) throws -> Data {
         let name = url.lastPathComponent

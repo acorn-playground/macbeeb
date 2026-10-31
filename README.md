@@ -1,6 +1,6 @@
 # macbeeb
 
-A cycle-exact BBC Micro emulator for the Mac, written in Swift.
+A cycle-exact BBC Micro emulator for the Mac and Linux, written in Swift.
 
 ![MacBeeb](screenshot.png)
 
@@ -23,6 +23,26 @@ the command to add it to Claude Code or Codex, for wherever the app is, and
 MCP > Activity Log shows every tool call agents make. For an app in
 Applications:
 `claude mcp add macbeeb -- /Applications/MacBeeb.app/Contents/MacOS/macbeeb-mcp --attach`.
+
+### Linux
+
+MacBeeb runs on Linux too, as a GNOME app (GTK 4 and libadwaita), built from
+the same source: the same emulation and the same features, with the
+interface GNOME's. It's developed on Ubuntu 26.04. Build and install it from
+a clone (with Swift 6.4 from [swift.org](https://www.swift.org/install)):
+
+```
+git submodule update --init --recursive
+scripts/linux-deps.sh            # the packages it builds against (sudo apt)
+scripts/install-linux.sh         # builds and installs it in ~/.local
+```
+
+MacBeeb is then in your applications, `macbeeb` runs it, and `macbeeb-mcp`
+is the MCP server (`claude mcp add macbeeb -- macbeeb-mcp --attach`). In a
+machine window Control is the BBC's, so MacBeeb's own shortcuts use Alt
+where the Mac uses Command (Help > Keyboard Shortcuts lists them).
+[docs/linux.md](docs/linux.md) describes how the code divides between the
+platforms.
 
 ## Built on the work of others
 
@@ -62,7 +82,7 @@ whose work MacBeeb builds on and includes.
 | `Sources/BeebDAP` | The Debug Adapter Protocol server (the VS Code extension is [its own repository](https://github.com/acorn-playground/vscode-macbeeb)) |
 | `ThirdParty/beebasm` | BeebAsm (submodule), built into the app |
 | `ThirdParty/baron` | Baron (submodule, with richc inside), built into the app |
-| `Sources/MacBeeb` | The Mac app |
+| `Sources/MacBeeb` | The app: `Shared` (both platforms), `macOS` (SwiftUI and AppKit), `Linux` (GTK 4 and libadwaita) |
 | `Sources/beeb` | Headless command-line BBC Micro |
 | `Sources/M6502GenKit`, `Sources/m6502-gen` | Generator for the 6502's per-cycle state machine |
 | `Sources/beeb-bench` | Core speed benchmark |

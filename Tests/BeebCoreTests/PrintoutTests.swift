@@ -1,8 +1,12 @@
 // Laying out print jobs, and their PDFs.
 
 import Foundation
+#if canImport(PDFKit)
 import AppKit
 import PDFKit
+#else
+import BeebCapture
+#endif
 import Testing
 import BeebPrint
 import BeebROMs
@@ -52,11 +56,37 @@ struct PrintoutTests {
         settings.style = style
         let bytes = Array("HELLO FROM ECONET\r".utf8) + [12] + Array("SECOND PAGE\r".utf8)
         let data = Printout(bytes, settings: settings).pdf(font: font, title: "Test")
+        #if canImport(PDFKit)
         let document = try #require(PDFDocument(data: data))
         #expect(document.pageCount == 2)
         #expect(document.page(at: 0)?.string?.contains("HELLO FROM ECONET") == true, "\(document.page(at: 0)?.string ?? "")")
         #expect(document.page(at: 1)?.string?.contains("SECOND PAGE") == true)
         #expect(document.page(at: 0)?.bounds(for: .mediaBox).size == PrintSettings.Paper.a4.size)
+        #else
+        // Poppler's tools read it, where they're installed.
+        guard FileManager.default.isExecutableFile(atPath: "/usr/bin/pdftotext") else { return }
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("printout-\(UUID().uuidString).pdf")
+        try data.write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        func run(_ tool: String, _ arguments: [String]) throws -> String {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/" + tool)
+            process.arguments = arguments
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            try process.run()
+            let output = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            return String(decoding: output, as: UTF8.self)
+        }
+        let info = try run("pdfinfo", [file.path])
+        #expect(info.contains("Pages:           2"), "\(info)")
+        #expect(info.contains("595.28 x 841.89 pts"), "\(info)")
+        let first = try run("pdftotext", ["-f", "1", "-l", "1", file.path, "-"])
+        let second = try run("pdftotext", ["-f", "2", "-l", "2", file.path, "-"])
+        #expect(first.contains("HELLO FROM ECONET"), "\(first)")
+        #expect(second.contains("SECOND PAGE"), "\(second)")
+        #endif
     }
 
     @Test func spoolerSplitsJobsWhenThePrinterGoesQuiet() {
@@ -89,8 +119,12 @@ struct PrintoutPictures {
                 settings.style = style
                 settings.paper = paper
                 let image = try #require(Printout(bytes, settings: settings).image(page: 0, scale: 2, font: font))
-                let rep = NSBitmapImageRep(cgImage: image)
-                try rep.representation(using: .png, properties: [:])!.write(to: folder.appendingPathComponent("print-\(style.rawValue)-\(paper.rawValue).png"))
+                #if canImport(PDFKit)
+                let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])!
+                #else
+                let png = try #require(PNGEncoder.encode(pixels: image.pixels, width: image.width, height: image.height))
+                #endif
+                try png.write(to: folder.appendingPathComponent("print-\(style.rawValue)-\(paper.rawValue).png"))
             }
         }
     }

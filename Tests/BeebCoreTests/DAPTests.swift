@@ -56,7 +56,7 @@ final class DAPClient: Sendable {
 }
 
 struct DAPTests {
-    var resources: String { Bundle.module.resourceURL!.appendingPathComponent("Resources/symbols").path }
+    var resources: String { testResources.appendingPathComponent("symbols").path }
 
     @Test func framing() throws {
         var buffer = try DAPServer.frame(["a": 1]) + DAPServer.frame(["b": "two"])

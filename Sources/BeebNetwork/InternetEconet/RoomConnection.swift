@@ -1,5 +1,8 @@
 import BeebCore
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// A station of this network's, as the room's told of it.
 public struct StationClaim: Sendable, Equatable, Hashable {

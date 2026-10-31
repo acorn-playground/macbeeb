@@ -7,7 +7,7 @@
 // controller that owns the drive supplies the time in microseconds and runs
 // each step when `timer` comes due.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #if canImport(WASILibc)
 import WASILibc

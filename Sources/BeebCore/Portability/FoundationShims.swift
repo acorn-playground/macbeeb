@@ -1,9 +1,9 @@
 // The few Foundation conveniences BeebCore uses that FoundationEssentials
 // (all there is on WebAssembly, where the rest of Foundation would add
-// 40MB of ICU data to the module) doesn't have. Only built without full
-// Foundation; on the Mac, Foundation's own are used.
+// 40MB of ICU data to the module) doesn’t have. Only built for WebAssembly;
+// on the Mac and Linux, Foundation’s own are used.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #if canImport(WASILibc)
 import WASILibc

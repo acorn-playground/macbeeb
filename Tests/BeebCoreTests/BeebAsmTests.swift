@@ -6,7 +6,7 @@ import BeebHost
 import BeebROMs
 
 struct BeebAsmTests {
-    var resources: String { Bundle.module.resourceURL!.appendingPathComponent("Resources/beebasm").path }
+    var resources: String { testResources.appendingPathComponent("beebasm").path }
 
     func table(_ name: String) throws -> SymbolTable {
         let listing = try String(contentsOfFile: "\(resources)/\(name).lst", encoding: .utf8)

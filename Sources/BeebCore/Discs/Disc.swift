@@ -7,7 +7,7 @@
 // is a flux reversal. A standard track is 3125 words (200ms at 300rpm), so
 // one word is one FM byte (clock and data bits interleaved) or two MFM bytes.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

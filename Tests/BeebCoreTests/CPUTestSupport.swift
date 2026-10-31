@@ -3,7 +3,7 @@ import Foundation
 
 /// Loads a file from the test bundle's Resources folder.
 func testResource(_ path: String) throws -> [UInt8] {
-    let url = Bundle.module.resourceURL!.appendingPathComponent("Resources").appendingPathComponent(path)
+    let url = testResources.appendingPathComponent(path)
     return try [UInt8](Data(contentsOf: url))
 }
 

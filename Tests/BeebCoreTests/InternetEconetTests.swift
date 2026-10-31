@@ -24,7 +24,7 @@ struct EconetTrafficTests {
     }
 
     static let fixtures: Fixtures = {
-        let url = Bundle.module.resourceURL!.appendingPathComponent("Resources/internet-econet/traffic.json")
+        let url = testResources.appendingPathComponent("internet-econet/traffic.json")
         return try! JSONDecoder().decode(Fixtures.self, from: Data(contentsOf: url))
     }()
 

@@ -1,8 +1,12 @@
+import BeebCore
 import Foundation
+#if canImport(Security)
 import Security
+#endif
 
 // A room's secrets: the member token (to connect), and for the host the
-// owner token. Kept in the Keychain, scoped to the service's origin and the
+// owner token. Kept in the Keychain (on Linux, the Secret Service, or a
+// file only the user can read), scoped to the service's origin and the
 // room, never in a network's file. (A network keeps only which room, on
 // which service.)
 
@@ -24,6 +28,7 @@ public protocol RoomCredentialStore: Sendable {
     func remove(service: URL, roomId: String)
 }
 
+#if canImport(Security)
 /// The macOS Keychain: one generic password per service origin and room.
 public struct KeychainCredentialStore: RoomCredentialStore {
     static let itemService = "MacBeeb Internet Econet"
@@ -72,6 +77,57 @@ public struct KeychainCredentialStore: RoomCredentialStore {
 
     public func remove(service: URL, roomId: String) {
         SecItemDelete(query(service, roomId) as CFDictionary)
+    }
+}
+#endif
+
+/// A file only the user can read and write (0600), in MacBeeb's own
+/// directory: where there's no Keychain or Secret Service to keep them.
+public final class FileCredentialStore: RoomCredentialStore, @unchecked Sendable {
+    public let url: URL
+    private let lock = NSLock()
+
+    public init(url: URL = URL.applicationSupportDirectory.appendingPathComponent("MacBeeb/RoomCredentials.json")) {
+        self.url = url
+    }
+
+    private func key(_ service: URL, _ roomId: String) -> String { "\(InternetEconetService.origin(service)) \(roomId)" }
+
+    private func load() -> [String: RoomCredentials] {
+        guard let data = try? Data(contentsOf: url) else { return [:] }
+        return (try? JSONDecoder().decode([String: RoomCredentials].self, from: data)) ?? [:]
+    }
+
+    private func store(_ items: [String: RoomCredentials]) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let data = try JSONEncoder().encode(items)
+        // Made private before anything's in it, then swapped in whole.
+        let temporary = url.appendingPathExtension("new")
+        guard FileManager.default.createFile(atPath: temporary.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {
+            throw CocoaError(.fileWriteNoPermission)
+        }
+        try data.write(to: temporary)
+        _ = try FileManager.default.replaceItemAt(url, withItemAt: temporary)
+    }
+
+    public func credentials(service: URL, roomId: String) -> RoomCredentials? {
+        lock.withLock { load()[key(service, roomId)] }
+    }
+
+    public func save(_ credentials: RoomCredentials, service: URL, roomId: String) throws {
+        try lock.withLock {
+            var items = load()
+            items[key(service, roomId)] = credentials
+            try store(items)
+        }
+    }
+
+    public func remove(service: URL, roomId: String) {
+        lock.withLock {
+            var items = load()
+            guard items.removeValue(forKey: key(service, roomId)) != nil else { return }
+            try? store(items)
+        }
     }
 }
 

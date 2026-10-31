@@ -1,5 +1,7 @@
 import BeebCore
+#if canImport(CryptoKit)
 import CryptoKit
+#endif
 import Foundation
 
 /// A curated game's disc, copied into MacBeeb's library.

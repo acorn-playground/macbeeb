@@ -1,5 +1,7 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
 import CoreText
+#endif
 import Foundation
 
 /// How a job's put on paper.
@@ -173,7 +175,9 @@ public struct Printout: Sendable {
         }.joined(separator: "\n")
     }
 
-    // MARK: Drawing
+    // MARK: Drawing (Core Graphics; on Linux, Cairo: see Printout+Cairo.swift)
+
+    #if canImport(CoreGraphics)
 
     /// Draws page `index` into `context`, whose origin is the page's
     /// bottom-left and whose size is the paper's (in points). `font` is the
@@ -298,4 +302,6 @@ public struct Printout: Sendable {
         draw(page: index, in: context, font: font)
         return context.makeImage()
     }
+    #endif
+
 }

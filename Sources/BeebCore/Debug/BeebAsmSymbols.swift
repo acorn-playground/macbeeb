@@ -11,7 +11,7 @@
 // lines (and the line that called it), and FOR loops' repeats to the loop
 // body.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation
@@ -21,7 +21,7 @@ extension SymbolTable {
     /// Parses a BeebAsm symbol dump.
     static func parseBeebAsmSymbols(_ text: String) -> SymbolTable {
         var table = SymbolTable()
-        #if canImport(FoundationEssentials)
+        #if os(WASI)
         // (No NSRegularExpression without Foundation: symbol files are
         // the Mac's business, not the WebAssembly build's.)
         return table

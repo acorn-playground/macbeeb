@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The files MacBeeb opens, for the desktop's file manager. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-bbc-disc">
+    <comment>BBC Micro disc image</comment>
+    <generic-icon name="media-floppy"/>
+    <glob pattern="*.ssd"/>
+    <glob pattern="*.dsd"/>
+  </mime-type>
+  <mime-type type="application/x-bbc-adfs-disc">
+    <comment>BBC Micro ADFS disc image</comment>
+    <generic-icon name="media-floppy"/>
+    <glob pattern="*.adf"/>
+    <glob pattern="*.ads"/>
+    <glob pattern="*.adm"/>
+    <glob pattern="*.adl"/>
+  </mime-type>
+  <mime-type type="application/x-bbc-tape">
+    <comment>BBC Micro tape image</comment>
+    <generic-icon name="media-tape"/>
+    <glob pattern="*.uef"/>
+    <glob pattern="*.csw"/>
+  </mime-type>
+  <mime-type type="application/x-macbeeb-state">
+    <comment>MacBeeb save state</comment>
+    <generic-icon name="application-x-generic"/>
+    <glob pattern="*.beebstate"/>
+  </mime-type>
+</mime-info>

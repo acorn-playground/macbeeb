@@ -6,7 +6,7 @@
 // Output is `width` x `height` 32-bit pixels, 0x00RRGGBB (BGRA in memory on
 // little-endian), with each scanline doubled.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #if canImport(WASILibc)
 import WASILibc

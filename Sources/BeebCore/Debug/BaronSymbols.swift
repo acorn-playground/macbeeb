@@ -19,7 +19,7 @@
 // (at their calls) and included files (at the INCLUDE), and back round FOR
 // loops as many times as the symbols say each loop ran.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation
@@ -55,7 +55,7 @@ public struct BaronSymbols: Sendable {
 
     /// Relative paths are from `directory`, where Baron ran.
     public init?(_ data: Data, directory: String) {
-        #if canImport(FoundationEssentials)
+        #if os(WASI)
         // (JSONSerialization needs Foundation: Baron runs on the Mac.)
         return nil
         #else

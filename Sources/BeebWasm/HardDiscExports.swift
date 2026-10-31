@@ -5,7 +5,7 @@
 // written since it last asked, and stores just those.
 
 import BeebCore
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

@@ -17,7 +17,7 @@
 //   formats are checked.
 
 import BeebCore
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

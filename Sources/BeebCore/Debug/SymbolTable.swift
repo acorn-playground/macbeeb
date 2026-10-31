@@ -8,7 +8,7 @@
 //
 // Built in: the OS's entry points and vectors, and the hardware registers.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation
@@ -271,7 +271,7 @@ public struct SymbolTable: Sendable {
     /// Label lists, one per line.
     static func parseLabels(_ text: String) -> SymbolTable {
         var table = SymbolTable()
-        #if canImport(FoundationEssentials)
+        #if os(WASI)
         // (No NSRegularExpression without Foundation.)
         return table
         #else

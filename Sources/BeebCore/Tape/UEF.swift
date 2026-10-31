@@ -8,7 +8,7 @@
 // cycles at either end), &0117 (300/1200 baud). Everything else (origin,
 // instructions, inlay, phase changes, markers, ...) is skipped.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

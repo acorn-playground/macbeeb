@@ -6,7 +6,7 @@
 // the machine.
 
 import BeebCore
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

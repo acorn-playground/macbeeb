@@ -405,7 +405,7 @@ public final class EconetGateway: EconetLineDevice, @unchecked Sendable {
     }
 }
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

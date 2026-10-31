@@ -31,15 +31,20 @@ $(BEEBASM): $(wildcard ThirdParty/beebasm/src/*.cpp ThirdParty/beebasm/src/*.h)
 	c++ -std=c++11 -O2 -w $(if $(UNIVERSAL),-arch arm64 -arch x86_64) -o $(BEEBASM) ThirdParty/beebasm/src/*.cpp
 
 # Baron (ThirdParty/baron, a git submodule, with richc inside it), for the
-# app and tests. UNIVERSAL=1 builds for Intel too.
+# app and tests. UNIVERSAL=1 builds for Intel too. (Strict C17 hides POSIX
+# from glibc's headers, so Linux asks for it.)
 baron: $(BARON)
+
+POSIX := $(if $(filter Linux,$(shell uname -s)),-D_GNU_SOURCE)
+# (And links the maths library, which glibc keeps apart.)
+LIBM := $(if $(filter Linux,$(shell uname -s)),-lm -lpthread)
 
 $(BARON): $(wildcard ThirdParty/baron/src/*.c ThirdParty/baron/src/*.h)
 	@test -f ThirdParty/baron/extern/richc/src/core/src/arena.c || git submodule update --init --recursive ThirdParty/baron
 	mkdir -p $(dir $(BARON))
-	cc -std=c17 -O2 -w $(if $(UNIVERSAL),-arch arm64 -arch x86_64) -IThirdParty/baron/src -IThirdParty/baron/extern/richc/src/core/include \
+	cc -std=c17 -O2 -w $(if $(UNIVERSAL),-arch arm64 -arch x86_64) $(POSIX) -IThirdParty/baron/src -IThirdParty/baron/extern/richc/src/core/include \
 		-o $(BARON) $(filter-out %/fuzz_assemble.c,$(wildcard ThirdParty/baron/src/*.c)) \
-		$(shell find ThirdParty/baron/extern/richc/src/core/src -name '*.c')
+		$(shell find ThirdParty/baron/extern/richc/src/core/src -name '*.c') $(LIBM)
 
 # WebAssembly (docs/wasm.md): the module, native/WebAssembly parity (with
 # states crossing both ways) and the module's own tests, the browser demo,

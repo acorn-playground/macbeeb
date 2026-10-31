@@ -1,4 +1,4 @@
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation
@@ -24,7 +24,7 @@ public struct MacFile: Sendable {
     /// would, and a .txt file's lines end in CRs, for *TYPE and *EXEC.
     /// Nil for .inf files themselves, and for folders on DFS.
     public static func read(_ url: URL, adfs: Bool) throws -> MacFile? {
-        #if canImport(FoundationEssentials)
+        #if os(WASI)
         // (Reading the Mac's files needs Foundation's URL resources.)
         throw CocoaError(.featureUnsupported)
         #else

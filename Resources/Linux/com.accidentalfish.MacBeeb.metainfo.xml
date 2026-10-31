@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.accidentalfish.MacBeeb</id>
+  <name>MacBeeb</name>
+  <summary>A cycle-exact BBC Micro emulator</summary>
+  <developer id="com.jamesdrandall">
+    <name>James Randall</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <url type="homepage">https://github.com/acorn-playground/macbeeb</url>
+  <url type="bugtracker">https://github.com/acorn-playground/macbeeb/issues</url>
+  <launchable type="desktop-id">com.accidentalfish.MacBeeb.desktop</launchable>
+  <description>
+    <p>
+      A cycle-exact emulation of the BBC Micro: the Model A and B, the B+,
+      the Master 128 and Master Compact, with the 6502, Z80, 80186 and ARM
+      second processors, discs and tapes, sound and joysticks.
+    </p>
+    <ul>
+      <li>The BBC Micro Classics and your own games, in a game library</li>
+      <li>Networks of BBC Micros over Econet, with file and printer servers, on your computer or across the Internet</li>
+      <li>A debugger for machine code and BBC BASIC, rewind, and VS Code debugging</li>
+      <li>Tools for AI agents to drive the machine you're watching</li>
+    </ul>
+  </description>
+  <categories>
+    <category>Game</category>
+    <category>Emulator</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <provides>
+    <binary>macbeeb</binary>
+    <mediatype>application/x-bbc-disc</mediatype>
+    <mediatype>application/x-bbc-adfs-disc</mediatype>
+    <mediatype>application/x-bbc-tape</mediatype>
+  </provides>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+    <control>gamepad</control>
+  </supports>
+</component>

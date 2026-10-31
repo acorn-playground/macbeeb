@@ -10,7 +10,7 @@
 // The serial ULA calls `tick()` once per 1MHz cycle while the motor is on,
 // and reads `signal`.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

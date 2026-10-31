@@ -9,7 +9,7 @@
 // the host to take after each run; what the room sends, the host gives it.
 
 import BeebCore
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

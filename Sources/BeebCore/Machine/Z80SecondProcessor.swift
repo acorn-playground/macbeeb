@@ -7,7 +7,7 @@
 // the ROM back in for its handler at &0066. Ports 0-7 are the Tube's
 // parasite-side registers; its R1/R4 interrupts are INT, its NMI is NMI.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

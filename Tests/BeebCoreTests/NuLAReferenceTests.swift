@@ -7,9 +7,11 @@
 // reference/b2 when it's there (it isn't committed); a few are committed in
 // Resources/nula/wanted so CI checks some of each kind.
 
+#if canImport(ImageIO)
 import CoreGraphics
-import Foundation
 import ImageIO
+#endif
+import Foundation
 import Testing
 @testable import BeebCore
 import BeebROMs
@@ -23,7 +25,7 @@ enum B2Pictures {
     /// or with MACBEEB_SLOW_TESTS) any of them from reference/. Nil skips
     /// the case.
     static func wanted(_ folder: String, _ name: String) -> [UInt32]? {
-        let committed = Bundle.module.resourceURL!.appendingPathComponent("Resources/nula/wanted/\(name).png")
+        let committed = testResources.appendingPathComponent("nula/wanted/\(name).png")
         if FileManager.default.fileExists(atPath: committed.path) {
             return pixels(committed)
         }
@@ -34,6 +36,15 @@ enum B2Pictures {
 
     /// A PNG's pixels as 0x00RRGGBB, as TVOutput has them.
     static func pixels(_ url: URL) -> [UInt32]? {
+        #if !canImport(ImageIO)
+        guard let data = try? Data(contentsOf: url), let image = PNGDecoding.decode(data) else { return nil }
+        // Over black, as Core Graphics draws it.
+        return image.pixels.map { pixel in
+            let alpha = pixel >> 24
+            func channel(_ shift: UInt32) -> UInt32 { ((pixel >> shift) & 0xFF) * alpha / 255 }
+            return channel(16) << 16 | channel(8) << 8 | channel(0)
+        }
+        #else
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
         let width = image.width, height = image.height
@@ -49,6 +60,7 @@ enum B2Pictures {
         return (0..<width * height).map { i in
             UInt32(rgba[i * 4]) << 16 | UInt32(rgba[i * 4 + 1]) << 8 | UInt32(rgba[i * 4 + 2])
         }
+        #endif
     }
 
     /// b2's "B tape" machine: OS 1.20 and BASIC 2, no disc system (PAGE &E00).

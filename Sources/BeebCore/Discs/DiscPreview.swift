@@ -1,6 +1,6 @@
 // (Quick Look's: it needs Foundation's formatters, so it isn't in the
 // WebAssembly build.)
-#if !canImport(FoundationEssentials)
+#if !os(WASI)
 import Foundation
 
 /// A disc image's catalogue as a web page, for Quick Look: its title, boot

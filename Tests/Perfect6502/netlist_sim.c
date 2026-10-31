@@ -501,7 +501,7 @@ state_t *
 setupNodesAndTransistors(netlist_transdefs *transdefs, BOOL *node_is_pullup, nodenum_t nodes, nodenum_t transistors, nodenum_t vss, nodenum_t vcc)
 {
 	/* allocate state */
-	state_t *state = malloc(sizeof(state_t));
+	state_t *state = calloc(1, sizeof(state_t));
 	state->nodes = nodes;
 	state->transistors = transistors;
 	state->vss = vss;

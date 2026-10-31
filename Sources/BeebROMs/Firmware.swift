@@ -1,5 +1,7 @@
 import BeebCore
+#if canImport(CryptoKit)
 import CryptoKit
+#endif
 import Foundation
 
 /// Expansion boards' controller ROMs: the versions MacBeeb knows, with

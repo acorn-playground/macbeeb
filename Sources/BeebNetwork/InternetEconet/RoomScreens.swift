@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// A room's screens connection: apart from its Econet (its own WebSocket,
 /// to its own object on the service), so an image never waits in front of

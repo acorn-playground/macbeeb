@@ -6,7 +6,7 @@ import BeebHost
 import BeebROMs
 
 struct SymbolTableTests {
-    var resources: String { Bundle.module.resourceURL!.appendingPathComponent("Resources/symbols").path }
+    var resources: String { testResources.appendingPathComponent("symbols").path }
 
     @Test func ld65DebugInfo() throws {
         // Made by Examples/hello-ca65's Makefile (ca65 -g, ld65 --dbgfile).

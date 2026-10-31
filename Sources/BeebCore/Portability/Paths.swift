@@ -1,7 +1,7 @@
 // File path manipulation: NSString's on the Mac, and the same rules (for
 // the paths BeebCore handles) where there's only FoundationEssentials.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation
@@ -10,7 +10,7 @@ import Foundation
 extension String {
     /// "/a/b.ssd" -> "b.ssd".
     var pathLastComponent: String {
-        #if canImport(FoundationEssentials)
+        #if os(WASI)
         let trimmed = pathTrimmingTrailingSlashes
         guard trimmed != "/" else { return "/" }
         return trimmed.split(separator: "/", omittingEmptySubsequences: true).last.map(String.init) ?? ""
@@ -21,7 +21,7 @@ extension String {
 
     /// "/a/b.ssd" -> "/a".
     var pathDeletingLastComponent: String {
-        #if canImport(FoundationEssentials)
+        #if os(WASI)
         let trimmed = pathTrimmingTrailingSlashes
         guard let slash = trimmed.lastIndex(of: "/") else { return "" }
         return slash == trimmed.startIndex ? "/" : String(trimmed[..<slash])
@@ -32,7 +32,7 @@ extension String {
 
     /// "b.ssd" -> "ssd"; "" without one.
     var pathFileExtension: String {
-        #if canImport(FoundationEssentials)
+        #if os(WASI)
         let name = pathLastComponent
         guard let dot = name.lastIndex(of: "."), dot != name.startIndex else { return "" }
         return String(name[name.index(after: dot)...])
@@ -42,7 +42,7 @@ extension String {
     }
 
     func pathAppendingComponent(_ component: String) -> String {
-        #if canImport(FoundationEssentials)
+        #if os(WASI)
         guard !isEmpty else { return component }
         guard !component.isEmpty else { return self }
         let base = pathTrimmingTrailingSlashes
@@ -54,7 +54,7 @@ extension String {
 
     /// With "." and ".." components resolved and repeated slashes removed.
     var pathStandardized: String {
-        #if canImport(FoundationEssentials)
+        #if os(WASI)
         let absolute = hasPrefix("/")
         var parts: [Substring] = []
         for part in split(separator: "/", omittingEmptySubsequences: true) {
@@ -72,7 +72,7 @@ extension String {
         #endif
     }
 
-    #if canImport(FoundationEssentials)
+    #if os(WASI)
     private var pathTrimmingTrailingSlashes: String {
         var s = Substring(self)
         while s.count > 1 && s.hasSuffix("/") { s = s.dropLast() }

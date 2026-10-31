@@ -1,5 +1,33 @@
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 import Foundation
+
+#if canImport(Glibc)
+/// Glibc has SOCK_STREAM as an enum case.
+private let SOCK_STREAM = Int32(Glibc.SOCK_STREAM.rawValue)
+#endif
+
+/// read(2) and write(2) by their own names, as the Mac's Darwin.read and
+/// Darwin.write; on Linux, writing is send(2) without SIGPIPE, so an agent
+/// that goes away mid-reply can't take the process with it.
+private func socketRead(_ fd: Int32, _ buffer: UnsafeMutableRawPointer, _ count: Int) -> Int {
+    #if canImport(Darwin)
+    Darwin.read(fd, buffer, count)
+    #else
+    Glibc.read(fd, buffer, count)
+    #endif
+}
+
+private func socketWrite(_ fd: Int32, _ buffer: UnsafeRawPointer, _ count: Int) -> Int {
+    #if canImport(Darwin)
+    Darwin.write(fd, buffer, count)
+    #else
+    send(fd, buffer, count, Int32(MSG_NOSIGNAL))
+    #endif
+}
 
 /// The local socket the app serves agent tools on, so `macbeeb-mcp
 /// --attach` can drive the machine you're watching. One JSON object per
@@ -7,8 +35,16 @@ import Foundation
 /// out. The socket is only accessible to the user.
 public enum AgentSocket {
     public static var defaultPath: String {
+        #if os(Linux)
+        // Linux keeps sockets in the user's runtime directory (private,
+        // and cleared at logout), when there is one.
+        let base = ProcessInfo.processInfo.environment["XDG_RUNTIME_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let support = base.appendingPathComponent("MacBeeb", isDirectory: true)
+        #else
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("MacBeeb", isDirectory: true)
+        #endif
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         return support.appendingPathComponent("agent.sock").path
     }
@@ -38,7 +74,7 @@ public enum AgentSocket {
                     return String(decoding: line, as: UTF8.self)
                 }
                 var chunk = [UInt8](repeating: 0, count: 65536)
-                let n = Darwin.read(fd, &chunk, chunk.count)
+                let n = socketRead(fd, &chunk, chunk.count)
                 guard n > 0 else { return nil }
                 buffer.append(contentsOf: chunk[0..<n])
             }
@@ -51,7 +87,7 @@ public enum AgentSocket {
         return data.withUnsafeBytes { buffer in
             var offset = 0
             while offset < buffer.count {
-                let n = Darwin.write(fd, buffer.baseAddress! + offset, buffer.count - offset)
+                let n = socketWrite(fd, buffer.baseAddress! + offset, buffer.count - offset)
                 if n <= 0 { return false }
                 offset += n
             }

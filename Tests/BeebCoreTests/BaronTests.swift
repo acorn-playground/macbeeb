@@ -6,7 +6,7 @@ import Testing
 import BeebROMs
 
 struct BaronTests {
-    var resources: String { Bundle.module.resourceURL!.appendingPathComponent("Resources/baron").path }
+    var resources: String { testResources.appendingPathComponent("baron").path }
     static let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent()
 

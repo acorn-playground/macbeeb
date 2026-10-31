@@ -1,4 +1,4 @@
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #if canImport(WASILibc)
 import WASILibc

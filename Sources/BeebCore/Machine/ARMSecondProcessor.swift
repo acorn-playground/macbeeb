@@ -8,7 +8,7 @@
 // copied into the bottom of RAM, where it runs. The Tube's R1/R4
 // interrupts are IRQ, its NMI is FIQ. Anything else aborts.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

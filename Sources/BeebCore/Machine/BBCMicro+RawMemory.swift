@@ -2,7 +2,7 @@
 // read or patch a machine directly (finding where a program keeps
 // something, then setting it), not for emulation.
 
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation

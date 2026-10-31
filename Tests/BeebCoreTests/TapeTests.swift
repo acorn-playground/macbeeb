@@ -735,7 +735,27 @@ struct DecompressorTests {
         }
     }
 
-    @Test func decodesAppleLZ4() throws {
+    /// BeebCore's own LZ4 (Linux's, for snapshots of the Master 512's
+    /// RAM) makes Apple's container, which its decoder reads back.
+    @Test func encodesLZ4() throws {
+        for sample in Self.samples {
+            let compressed = LZ4.compress(Data(sample))
+            #expect(LZ4.decompress(compressed) == Data(sample))
+            if sample.count > 1000 && sample.first == sample.last {
+                #expect(compressed.count < sample.count, "\(sample.count) bytes")
+            }
+        }
+        // A megabyte of RAM that's mostly empty, as a Master 512's is.
+        var ram = [UInt8](repeating: 0, count: 1 << 20)
+        for i in stride(from: 0, to: ram.count, by: 4096) { ram[i] = UInt8(truncatingIfNeeded: i >> 12) }
+        let compressed = LZ4.compress(Data(ram))
+        #expect(compressed.count < 100_000)
+        #expect(LZ4.decompress(compressed) == Data(ram))
+    }
+
+    // (The Compression framework's LZ4 is only on the Mac.)
+    @Test(.enabled(if: canImportDarwin))
+    func decodesAppleLZ4() throws {
         for sample in Self.samples {
             let compressed = try (Data(sample) as NSData).compressed(using: .lz4) as Data
             #expect(LZ4.decompress(compressed) == Data(sample))
@@ -743,3 +763,9 @@ struct DecompressorTests {
         }
     }
 }
+
+#if canImport(Darwin)
+private let canImportDarwin = true
+#else
+private let canImportDarwin = false
+#endif

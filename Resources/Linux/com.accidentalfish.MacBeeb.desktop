@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=MacBeeb
+GenericName=BBC Micro Emulator
+Comment=A cycle-exact BBC Micro: discs, tapes, games, Econet networks and a debugger
+Exec=@EXEC@ %U
+Icon=com.accidentalfish.MacBeeb
+Terminal=false
+StartupNotify=true
+Categories=Game;Emulator;
+Keywords=BBC;Micro;Acorn;Master;Emulator;6502;Econet;Elite;BASIC;
+MimeType=application/x-bbc-disc;application/x-bbc-adfs-disc;application/x-bbc-tape;application/x-macbeeb-state;x-scheme-handler/macbeeb;
+Actions=new-window;library;
+
+[Desktop Action new-window]
+Name=New BBC Micro Window
+Exec=@EXEC@ --new-window
+
+[Desktop Action library]
+Name=Game Library
+Exec=@EXEC@ --library

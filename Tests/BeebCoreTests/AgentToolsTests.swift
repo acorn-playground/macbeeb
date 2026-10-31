@@ -3,7 +3,9 @@ import BeebCore
 import BeebHost
 import BeebROMs
 import Foundation
+#if canImport(ImageIO)
 import ImageIO
+#endif
 import Testing
 
 struct AgentToolsTests {
@@ -72,7 +74,7 @@ struct AgentToolsTests {
 
     @Test func loadDiscBoots() throws {
         let tools = makeTools()
-        let path = Bundle.module.resourceURL!.appendingPathComponent("Resources/discs/beeb_6502_timing_tests.ssd").path
+        let path = testResources.appendingPathComponent("discs/beeb_6502_timing_tests.ssd").path
         let result = tools.call("load_disc", arguments: ["path": .string(path), "max_seconds": 60])
         #expect(!result.isError)
         #expect(text(result).contains("TIMINGS"))
@@ -81,7 +83,7 @@ struct AgentToolsTests {
 
     @Test func loadTapeChainsTheProgram() throws {
         let tools = makeTools()
-        let path = Bundle.module.resourceURL!.appendingPathComponent("Resources/tapes/pugwash.uef").path
+        let path = testResources.appendingPathComponent("tapes/pugwash.uef").path
         let result = tools.call("load_tape", arguments: ["path": .string(path), "max_seconds": 40])
         #expect(!result.isError)
         #expect(text(result).contains("Pugwash Tune"), "\(text(result))")
@@ -140,9 +142,14 @@ struct AgentSnapshotTests {
             return
         }
         #expect(session.machine.cycles == cycles)
+        #if canImport(ImageIO)
         let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
         let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
         let pixels = try #require(image.dataProvider?.data as Data?)
+        #else
+        let image = try #require(PNGDecoding.decode(data))
+        let pixels = image.pixels.withUnsafeBytes { Data($0) }
+        #endif
         // Opaque black is one 0xFF (alpha) in four bytes; the text adds more.
         #expect(pixels.count { $0 != 0 } > pixels.count / 4, "the screenshot is all black")
     }
@@ -271,7 +278,7 @@ struct AgentHardwareToolsTests {
         #expect(hardware.contains("sideways RAM module: 32k (Sideways RAM 32K) in socket 13, second bank 8 below; banks 13 and 5"), "\(hardware)")
         #expect(hardware.contains("13  RAM, 32K sideways RAM module, writable when selected: no ROM image"), "\(hardware)")
 
-        let rom = Bundle.module.resourceURL!.appendingPathComponent("Resources/expansions/hello.rom").path
+        let rom = testResources.appendingPathComponent("expansions/hello.rom").path
         let loaded = support.text(tools.call("load_sideways_bank", arguments: ["bank": 5, "path": .string(rom)]))
         #expect(loaded.contains("a ROM image, MacBeeb Hello 1.00"), "\(loaded)")
         // Physical read of bank 5 while BASIC (15) is paged in.
@@ -292,7 +299,7 @@ struct AgentHardwareToolsTests {
     @Test func plainBreakAlsoFindsANewROM() throws {
         let (tools, _) = modelBTools()
         _ = tools.call("power_cycle", arguments: ["memory_board": "sideways_ram_16"])
-        let rom = Bundle.module.resourceURL!.appendingPathComponent("Resources/expansions/hello.rom").path
+        let rom = testResources.appendingPathComponent("expansions/hello.rom").path
         _ = tools.call("load_sideways_bank", arguments: ["bank": 13, "path": .string(rom)])
         _ = tools.call("press_break", arguments: [:])
         let output = support.text(tools.call("run_command", arguments: ["text": "*HELLO"]))
@@ -327,7 +334,7 @@ struct AgentHardwareToolsTests {
         let status = support.text(tools.call("run_command", arguments: ["text": "*XSTATUS X"]))
         #expect(status.contains("Current shadow RAM: 20K"), "\(status)")
         // The B32's RAM can be loaded from outside too, and read physically.
-        let rom = Bundle.module.resourceURL!.appendingPathComponent("Resources/expansions/hello.rom").path
+        let rom = testResources.appendingPathComponent("expansions/hello.rom").path
         #expect(!tools.call("load_sideways_bank", arguments: ["bank": 14, "path": .string(rom)]).isError)
         #expect(support.text(tools.call("peek", arguments: ["address": "&8009", "length": 7, "space": "bankE"])).contains("MacBeeb"))
         #expect(support.text(tools.call("peek", arguments: ["address": "&4009", "length": 7, "space": "board"])).contains("MacBeeb"))
@@ -362,7 +369,7 @@ struct AgentHardwareToolsTests {
 
     @Test func errorsExplainThemselves() throws {
         let (tools, _) = modelBTools()
-        let rom = Bundle.module.resourceURL!.appendingPathComponent("Resources/expansions/hello.rom").path
+        let rom = testResources.appendingPathComponent("expansions/hello.rom").path
         let noRAM = tools.call("load_sideways_bank", arguments: ["bank": 13, "path": .string(rom)])
         #expect(noRAM.isError && support.text(noRAM).contains("there's no sideways RAM"), "\(support.text(noRAM))")
         _ = tools.call("power_cycle", arguments: ["memory_board": "sideways_ram_16"])

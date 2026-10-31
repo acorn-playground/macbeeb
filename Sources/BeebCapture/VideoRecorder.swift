@@ -1,3 +1,4 @@
+#if canImport(AVFoundation)
 import AVFoundation
 import BeebCore
 import CoreMedia
@@ -281,3 +282,4 @@ public final class VideoRecorder: @unchecked Sendable {
         }
     }
 }
+#endif

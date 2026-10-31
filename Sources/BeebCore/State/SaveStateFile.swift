@@ -1,7 +1,10 @@
-#if canImport(FoundationEssentials)
+#if os(WASI)
 import FoundationEssentials
 #else
 import Foundation
+#endif
+#if os(Linux)
+import CLZFSE
 #endif
 
 /// A save state file (.beebstate): everything needed to bring a machine
@@ -35,12 +38,14 @@ public struct SaveStateFile: Codable, Sendable {
         return machine
     }
 
-    /// The file: compressed with LZFSE, or, where there's no Compression
-    /// framework (WebAssembly), the plain binary plist that `portableData()`
-    /// gives.
+    /// The file: compressed with LZFSE (the Compression framework's on the
+    /// Mac, Apple's reference implementation on Linux, the same format), or
+    /// on WebAssembly, the plain binary plist that `portableData()` gives.
     public func data() throws -> Data {
         #if canImport(Darwin)
         return try (portableData() as NSData).compressed(using: .lzfse) as Data
+        #elseif os(Linux)
+        return LZFSE.compress(try portableData())
         #else
         return try portableData()
         #endif
@@ -64,6 +69,9 @@ public struct SaveStateFile: Codable, Sendable {
                 throw FileError.notASaveState
             }
             plist = decompressed
+            #elseif os(Linux)
+            guard let decompressed = LZFSE.decompress(data) else { throw FileError.notASaveState }
+            plist = decompressed
             #else
             // (LZFSE needs the Compression framework.)
             throw FileError.notASaveState
@@ -73,3 +81,42 @@ public struct SaveStateFile: Codable, Sendable {
         guard format == Self.magic else { throw FileError.notASaveState }
     }
 }
+
+#if os(Linux)
+/// LZFSE through Apple's reference implementation (Sources/CLZFSE).
+enum LZFSE {
+    static func compress(_ data: Data) -> Data {
+        let scratch = UnsafeMutableRawPointer.allocate(byteCount: lzfse_encode_scratch_size(), alignment: 16)
+        defer { scratch.deallocate() }
+        // At worst the data stored, with block headers.
+        var output = [UInt8](repeating: 0, count: data.count + data.count / 16 + 4096)
+        let count = data.withUnsafeBytes { source in
+            output.withUnsafeMutableBufferPointer { destination in
+                lzfse_encode_buffer(destination.baseAddress, destination.count,
+                                    source.bindMemory(to: UInt8.self).baseAddress, source.count, scratch)
+            }
+        }
+        return Data(output[0..<count])
+    }
+
+    /// nil if it isn't LZFSE.
+    static func decompress(_ data: Data) -> Data? {
+        let scratch = UnsafeMutableRawPointer.allocate(byteCount: lzfse_decode_scratch_size(), alignment: 16)
+        defer { scratch.deallocate() }
+        var capacity = max(data.count * 4, 1 << 20)
+        while capacity <= 1 << 30 {
+            var output = [UInt8](repeating: 0, count: capacity)
+            let count = data.withUnsafeBytes { source in
+                output.withUnsafeMutableBufferPointer { destination in
+                    lzfse_decode_buffer(destination.baseAddress, destination.count,
+                                        source.bindMemory(to: UInt8.self).baseAddress, source.count, scratch)
+                }
+            }
+            // A full buffer may mean it didn't fit.
+            if count < capacity { return count > 0 ? Data(output[0..<count]) : nil }
+            capacity *= 4
+        }
+        return nil
+    }
+}
+#endif

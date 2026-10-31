@@ -363,12 +363,50 @@ public final class NetworkHost: @unchecked Sendable {
     /// rest of the Mac.
     static let maxThreads: Int = {
         var cores: Int32 = 0
+        #if canImport(Darwin)
         var size = MemoryLayout<Int32>.size
         if sysctlbyname("hw.perflevel0.physicalcpu", &cores, &size, nil, 0) != 0 || cores <= 0 {
             cores = Int32(ProcessInfo.processInfo.activeProcessorCount)
         }
+        #else
+        cores = Int32(linuxPerformanceCores() ?? ProcessInfo.processInfo.activeProcessorCount)
+        #endif
         return max(1, Int(cores) - 1)
     }()
+
+    #if !canImport(Darwin)
+    /// Linux's count of what the Mac calls performance cores: physical
+    /// cores (a core's hyperthreads count once), and on a hybrid Intel
+    /// chip only its performance ones (sysfs's cpu_core).
+    static func linuxPerformanceCores() -> Int? {
+        func read(_ path: String) -> String? {
+            (try? String(contentsOfFile: path, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        /// "0-3,8,10-11" -> [0, 1, 2, 3, 8, 10, 11].
+        func cpus(_ list: String) -> Set<Int> {
+            var result = Set<Int>()
+            for part in list.split(separator: ",") {
+                let bounds = part.split(separator: "-").compactMap { Int($0) }
+                if bounds.count == 2, bounds[0] <= bounds[1] {
+                    result.formUnion(bounds[0]...bounds[1])
+                } else if bounds.count == 1 {
+                    result.insert(bounds[0])
+                }
+            }
+            return result
+        }
+        let system = "/sys/devices/system/cpu"
+        guard let online = read(system + "/online").map(cpus), !online.isEmpty else { return nil }
+        let performance = read("/sys/devices/cpu_core/cpus").map(cpus)
+        var cores = Set<String>()
+        for cpu in online where performance?.contains(cpu) ?? true {
+            let topology = "\(system)/cpu\(cpu)/topology/"
+            guard let core = read(topology + "core_id") else { continue }
+            cores.insert("\(read(topology + "physical_package_id") ?? "0").\(read(topology + "die_id") ?? "0").\(core)")
+        }
+        return cores.isEmpty ? nil : cores.count
+    }
+    #endif
 
     /// Once a second: more threads if the network's falling short and never
     /// rests, fewer if it rests a lot.
