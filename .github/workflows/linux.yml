@@ -1,0 +1,51 @@
+# The Linux build and the test suite: the libraries, the command-line tools,
+# the MCP server and the GNOME app (GTK 4 and libadwaita, which want
+# Ubuntu 26.04's: libadwaita 1.8 or later), then the tests as `make test`
+# runs them. Started by hand (Actions > Linux > Run workflow) until it's
+# been seen to pass there.
+
+name: Linux
+
+on:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    container: ubuntu:26.04
+    timeout-minutes: 90
+    env:
+      SWIFT_VERSION: "6.4.1"
+    steps:
+      - name: Packages
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git curl ca-certificates make gcc g++ libc6-dev pkg-config python3 \
+            libgtk-4-dev libadwaita-1-dev libepoxy-dev libsdl3-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libcairo2-dev zlib1g-dev \
+            gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav \
+            poppler-utils libcurl4-openssl-dev libxml2-dev
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Swift toolchain (swiftly)
+        run: |
+          curl -fsSLO "https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz"
+          tar zxf "swiftly-$(uname -m).tar.gz"
+          ./swiftly init --quiet-shell-followup --assume-yes --skip-install
+          . "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
+          swiftly install --use "$SWIFT_VERSION"
+          echo "$(dirname "$(command -v swift)")" >> "$GITHUB_PATH"
+
+      - name: Build (the app, the tools, the MCP server)
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          swift build --product MacBeeb
+          swift build --product beeb
+          swift build --product macbeeb-mcp
+
+      - name: Tests
+        run: make test
