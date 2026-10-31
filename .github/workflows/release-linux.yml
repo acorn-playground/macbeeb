@@ -32,12 +32,18 @@ jobs:
     timeout-minutes: 90
     env:
       SWIFT_VERSION: "6.4.1"
+      # (Where swiftly goes, said outright: it would choose root's home,
+      # but the container's HOME is /github/home.)
+      SWIFTLY_HOME_DIR: /opt/swiftly
+      SWIFTLY_BIN_DIR: /opt/swiftly/bin
+      SWIFTLY_TOOLCHAINS_DIR: /opt/swiftly/toolchains
     steps:
       - name: Packages
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             git curl ca-certificates make gcc g++ libc6-dev pkg-config python3 dpkg-dev xz-utils \
+            binutils-gold unzip zip gnupg2 libpython3-dev libncurses-dev libz3-dev \
             libgtk-4-dev libadwaita-1-dev libepoxy-dev libsdl3-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libcairo2-dev zlib1g-dev \
             libcurl4-openssl-dev libxml2-dev
@@ -48,11 +54,13 @@ jobs:
           submodules: recursive
 
       - name: Swift toolchain (swiftly)
+        # (Bash: swiftly's env.sh is written for root's shell.)
+        shell: bash
         run: |
           curl -fsSLO "https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz"
           tar zxf "swiftly-$(uname -m).tar.gz"
           ./swiftly init --quiet-shell-followup --assume-yes --skip-install
-          . "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
+          . "$SWIFTLY_HOME_DIR/env.sh"
           swiftly install --use "$SWIFT_VERSION"
           echo "$(dirname "$(command -v swift)")" >> "$GITHUB_PATH"
 
