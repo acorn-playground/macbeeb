@@ -26,20 +26,28 @@ and installs them with `Resources/Linux/install.sh`, the archive's
 
 ### Releases
 
-A release's Linux packages come from `.github/workflows/release-linux.yml`.
-When `scripts/release.sh VERSION --publish` (on the Mac) makes the GitHub
-release, the workflow builds MacBeeb on Ubuntu 26.04 for Intel and Arm,
-with `scripts/package-linux.sh VERSION`, and attaches what it makes to the
-release, beside the Mac's disk image:
+`scripts/release.sh VERSION` (on the Mac) builds a release's Linux packages
+too, in Docker containers of Ubuntu 26.04, while it builds and notarises
+the Mac's (`scripts/package-linux-docker.sh VERSION`, which runs
+`scripts/package-linux.sh VERSION` in each from the committed files):
+Arm's in the Mac's Docker, and Intel's in the Docker of an Intel Linux
+computer over ssh, `LINUX_INTEL_HOST` (by default `linuxdev`, as ssh knows
+it). Docker's emulation of Intel on Apple silicon, Rosetta, can't run
+Ubuntu 26.04's programs. Each Docker builds the image
+(`scripts/linux-build.Dockerfile`) the first time. If any build fails,
+it stops without publishing; with `--publish`, the GitHub release has them
+all, beside the Mac's disk image:
 
 | File | For |
 | --- | --- |
 | `macbeeb_VERSION_amd64.deb`, `_arm64.deb` | Ubuntu and Debian: its dependencies are worked out from what the programs link (`dpkg-shlibdeps`), so apt installs them; GStreamer's encoders, for recordings, are recommended |
 | `MacBeeb-VERSION-linux-x86_64.tar.xz`, `-aarch64` | Other distributions: unpacked, `./install.sh` (as `install-linux.sh`, without building) |
 
-Run by hand (Actions > Linux release > Run workflow, with the tag), it
-makes them again and replaces those attached. `scripts/package-linux.sh`
-also runs locally, for this computer's processor, into
+`LINUX_ARCHS=arm64` builds Arm's only, and `.build/releases/VERSION/linux.log`
+says how the builds went. `.github/workflows/release-linux.yml`, run by
+hand (Actions > Linux release > Run workflow, with the tag), makes them
+again on GitHub and replaces those attached. `scripts/package-linux.sh`
+also runs on Linux itself, for that computer's processor, into
 `.build/releases/VERSION/linux` (it needs `dpkg-dev`).
 
 ## How the code divides

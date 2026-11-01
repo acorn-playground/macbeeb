@@ -1,7 +1,8 @@
 #!/bin/sh
-# Packages MacBeeb for Linux, for a release: what the Linux release workflow
-# (.github/workflows/release-linux.yml) attaches to the GitHub release,
-# beside the Mac's disk image.
+# Packages MacBeeb for Linux, for a release: what scripts/release.sh (in
+# Docker, with scripts/package-linux-docker.sh) or the Linux release
+# workflow (.github/workflows/release-linux.yml) attaches to the GitHub
+# release, beside the Mac's disk image.
 #
 #   scripts/package-linux.sh VERSION
 #

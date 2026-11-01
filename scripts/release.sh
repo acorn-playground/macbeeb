@@ -4,14 +4,20 @@
 #   scripts/release.sh VERSION            build, sign, notarise and staple
 #   scripts/release.sh VERSION --publish  ...then tag and make a GitHub release
 #
-# Publishing starts .github/workflows/release-linux.yml, which builds the
-# Linux packages and attaches them to the same release (docs/linux.md).
-#
 # Produces, in .build/releases/VERSION:
 #   MacBeeb-VERSION.dmg   for downloading
 #   MacBeeb-VERSION.zip   for Sparkle
 #   appcast.xml           the update feed, including earlier releases
 #   notes.md              this release's section of WHATSNEW.md
+#   linux/                the Linux packages, for Arm and Intel
+#   linux.log             how their builds went
+#
+# The Linux packages are built in Docker containers while the Mac's is
+# (scripts/package-linux-docker.sh): Arm's on this Mac, Intel's on an Intel
+# Linux computer over ssh (LINUX_INTEL_HOST, by default linuxdev).
+# LINUX_ARCHS="arm64" builds Arm's only.
+# Nothing is published unless every build succeeds, and then the release
+# has them all (docs/linux.md).
 #
 # WHATSNEW.md must have a "## VERSION" section: it becomes the GitHub
 # release's notes, Sparkle's update window, and Help > What's New.
@@ -22,6 +28,8 @@
 # key lives in the login keychain under the account "macbeeb"; create it
 # once with:
 #   .build/artifacts/sparkle/Sparkle/bin/generate_keys --account macbeeb
+# Docker must be running, here and on LINUX_INTEL_HOST, for the Linux
+# packages.
 set -e
 cd "$(dirname "$0")/.."
 
@@ -63,15 +71,46 @@ if [ -n "$(git status --porcelain)" ]; then
     echo "release: warning: the working tree has uncommitted changes" >&2
     [ -n "$PUBLISH" ] && { echo "release: commit them before publishing" >&2; exit 1; }
 fi
+# (The Docker that builds each Linux package: this Mac's, or one over ssh.)
+LINUX_DOCKERS=
+for arch in ${LINUX_ARCHS:-arm64 amd64}; do
+    case "$arch" in
+        arm64) host=${LINUX_ARM_HOST-} ;;
+        *) host=${LINUX_INTEL_HOST-linuxdev} ;;
+    esac
+    LINUX_DOCKERS="$LINUX_DOCKERS ${host:+ssh://$host}"
+    [ -z "$host" ] || ssh -o BatchMode=yes -o ConnectTimeout=10 "$host" true ||
+        { echo "release: can't reach $host by ssh (for the Linux packages)" >&2; exit 1; }
+    DOCKER_HOST=${host:+ssh://$host} docker info >/dev/null 2>&1 ||
+        { echo "release: Docker isn't running on ${host:-this Mac} (for the Linux packages)" >&2; exit 1; }
+done
+
+OUT=.build/releases/$VERSION
+rm -rf "$OUT"
+mkdir -p "$OUT/sparkle"
+
+# The Linux packages, in the background while the Mac's builds. (Stopped,
+# containers and all, if this stops first.)
+echo "Building the Linux packages (${LINUX_ARCHS:-arm64 amd64}) in Docker: $OUT/linux.log"
+# shellcheck disable=SC2086
+scripts/package-linux-docker.sh "$VERSION" $LINUX_ARCHS > "$OUT/linux.log" 2>&1 &
+LINUX_PID=$!
+stop_linux() {
+    [ -n "$LINUX_PID" ] || return 0
+    kill "$LINUX_PID" 2>/dev/null || true
+    for docker_host in $LINUX_DOCKERS ""; do
+        DOCKER_HOST=$docker_host docker ps -q --filter label=macbeeb-linux-build |
+            DOCKER_HOST=$docker_host xargs docker kill >/dev/null 2>&1 || true
+    done
+}
+trap stop_linux EXIT
+trap 'exit 130' INT TERM
 
 BUILD_NUMBER=$(git rev-list --count HEAD)
 export UNIVERSAL=1 SIGN_IDENTITY="$IDENTITY" VERSION BUILD_NUMBER SPARKLE_PUBLIC_KEY
 scripts/make-app.sh
 
 APP=.build/app/MacBeeb.app
-OUT=.build/releases/$VERSION
-rm -rf "$OUT"
-mkdir -p "$OUT/sparkle"
 printf '%s\n' "$NOTES" > "$OUT/notes.md"
 
 notarise() {
@@ -113,12 +152,22 @@ cp "$OUT/sparkle/appcast.xml" "$OUT/appcast.xml"
 
 spctl --assess --type open --context context:primary-signature -v "$DMG"
 spctl --assess --type execute -v "$APP"
+
+echo "Waiting for the Linux packages..."
+if ! wait "$LINUX_PID"; then
+    LINUX_PID=
+    tail -n 40 "$OUT/linux.log" >&2
+    echo "release: the Linux packages didn't build (all of it is in $OUT/linux.log)" >&2
+    exit 1
+fi
+LINUX_PID=
+ls -l "$OUT/linux"
 echo "Built $OUT"
 
 if [ -n "$PUBLISH" ]; then
     git tag "v$VERSION"
     git push origin "v$VERSION"
     gh release create "v$VERSION" --repo "$REPO" --title "MacBeeb $VERSION" --notes-file "$OUT/notes.md" \
-        "$DMG" "$ZIP" "$OUT/appcast.xml"
+        "$DMG" "$ZIP" "$OUT/appcast.xml" "$OUT"/linux/*
     echo "Published https://github.com/$REPO/releases/tag/v$VERSION"
 fi

@@ -1,15 +1,13 @@
-# The Linux packages for a release. When scripts/release.sh --publish makes
-# the GitHub release (on the Mac), this builds MacBeeb for Linux on Ubuntu
-# 26.04, for Intel and Arm, and attaches each's .tar.xz and .deb to the
-# release beside the Mac's disk image (scripts/package-linux.sh). Run it by
-# hand (Actions > Linux release > Run workflow) with a release's tag to make
-# them again: they replace those attached.
+# The Linux packages for a release, made again on GitHub. scripts/release.sh
+# builds them itself, in Docker on the Mac, and attaches them when it makes
+# the release; this is for making them again without the Mac: run it by hand
+# (Actions > Linux release > Run workflow) with a release's tag, and it
+# builds MacBeeb for Linux on Ubuntu 26.04, for Intel and Arm, and replaces
+# the .tar.xz and .deb attached (scripts/package-linux.sh).
 
 name: Linux release
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -20,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+  TAG: ${{ inputs.tag }}
 
 jobs:
   package:
