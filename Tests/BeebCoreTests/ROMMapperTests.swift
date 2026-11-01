@@ -21,6 +21,11 @@ private func pageNumbered(_ size: Int) -> [UInt8] {
 }
 
 struct ROMMapperTests {
+    /// The real Computer Concepts ROMs, when they're in roms/: their tests
+    /// are skipped where they aren't (as on GitHub).
+    static let interWord = userROM("Computer Concepts InterWord v1.02 [32k].rom")
+    static let interBase = userROM("Computer Concepts InterBase v2.0A [64k].rom")
+
     @Test func interWordSwitchesHalves() {
         let m = BBCMicro.ROMMapper.interWord
         #expect(m.region(for: 0xBFA0, current: 0) == 1 && m.region(for: 0xBFBF, current: 0) == 1)
@@ -75,8 +80,9 @@ struct ROMMapperTests {
     }
 
     /// Inter-Word, the real 32K ROM, in the Master's front cartridge.
-    @Test func interWordRunsFromACartridge() throws {
-        let rom = try #require(userROM("Computer Concepts InterWord v1.02 [32k].rom"), "roms/ isn't here")
+    @Test(.enabled(if: interWord != nil, "Needs InterWord v1.02 in roms/"))
+    func interWordRunsFromACartridge() throws {
+        let rom = try #require(Self.interWord)
         var configuration = BeebROMs.configuration(for: .master128)
         configuration.sidewaysROMs[1] = rom
         configuration.romMappers[1] = .interWord
@@ -90,8 +96,9 @@ struct ROMMapperTests {
     }
 
     /// Inter-Base, the real 64K ROM, in the Model B's socket 13.
-    @Test func interBaseRunsFromASocket() throws {
-        let rom = try #require(userROM("Computer Concepts InterBase v2.0A [64k].rom"), "roms/ isn't here")
+    @Test(.enabled(if: interBase != nil, "Needs InterBase v2.0A in roms/"))
+    func interBaseRunsFromASocket() throws {
+        let rom = try #require(Self.interBase)
         var configuration = BeebROMs.configuration(for: .modelB)
         configuration.sidewaysROMs[13] = rom
         configuration.romMappers[13] = .interBase
